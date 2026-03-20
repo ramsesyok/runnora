@@ -14,6 +14,11 @@ func NewRootCmd() *cobra.Command {
 
 	root.AddCommand(newRunCmd())
 	root.AddCommand(newVersionCmd())
+	root.AddCommand(newListCmd())
+	root.AddCommand(newCoverageCmd())
+	root.AddCommand(newLoadtCmd())
+	root.AddCommand(newNewCmd())
+	root.AddCommand(newRprofCmd())
 
 	return root
 }
