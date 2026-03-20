@@ -1,0 +1,33 @@
+services:
+  oracle:
+    image: container-registry.oracle.com/database/free
+    container_name: oracle-free
+    ports:
+      - "1521:1521"
+    environment:
+      ORACLE_PWD: "Oracle123!"
+      ORACLE_CHARACTERSET: "AL32UTF8"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+      - ./oracle-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/oracle/checkDBStatus.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 180s
+
+  testapi:
+    build:
+      context: ./testapi
+    container_name: testapi
+    ports:
+      - "8081:8081"
+    environment:
+      DB_DSN: "oracle://testuser:TestPass1!@oracle:1521/FREEPDB1"
+    depends_on:
+      oracle:
+        condition: service_healthy
+
+volumes:
+  oracle-data:

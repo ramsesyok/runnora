@@ -1,0 +1,22 @@
+desc: PL/SQL フックの動作確認 (--before-sql で seed_with_cursor.sql を使用)
+runners:
+  req:
+    endpoint: http://localhost:8081
+  db:
+    dsn: "oracle://testuser:TestPass1%21@localhost:1521/FREEPDB1"
+steps:
+  check_seeded_count:
+    # seed_with_cursor.sql が PL/SQL カーソルで 3件 INSERT していることを確認
+    db:
+      query: SELECT COUNT(*) AS cnt FROM testuser.users
+    test: steps.check_seeded_count.rows[0].CNT == "3"
+
+  list_seeded_users:
+    req:
+      /users:
+        get:
+          body: null
+    test: steps.list_seeded_users.res.status == 200 && len(steps.list_seeded_users.res.body) == 3
+
+  check_first_user:
+    test: steps.list_seeded_users.res.body[0].name == "Seed User 1"

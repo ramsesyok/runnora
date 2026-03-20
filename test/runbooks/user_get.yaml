@@ -1,0 +1,35 @@
+desc: ユーザー取得
+runners:
+  req:
+    endpoint: http://localhost:8081
+  db:
+    dsn: "oracle://testuser:TestPass1%21@localhost:1521/FREEPDB1"
+steps:
+  create_user:
+    req:
+      /users:
+        post:
+          body:
+            application/json:
+              name: Dave
+              email: dave@example.com
+              age: 40
+    test: steps.create_user.res.status == 201
+
+  bind_id:
+    bind:
+      user_id: steps.create_user.res.body.id
+
+  get_user:
+    req:
+      /users/{{ user_id }}:
+        get:
+          body: null
+    test: steps.get_user.res.status == 200 && steps.get_user.res.body.email == "dave@example.com"
+
+  get_not_found:
+    req:
+      /users/999999:
+        get:
+          body: null
+    test: steps.get_not_found.res.status == 404

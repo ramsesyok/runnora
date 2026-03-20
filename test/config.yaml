@@ -1,0 +1,22 @@
+app:
+  name: runnora-test
+
+db:
+  driver: oracle
+  dsn: "oracle://testuser:TestPass1!@localhost:1521/FREEPDB1"
+  max_open_conns: 5
+  max_idle_conns: 2
+  conn_max_lifetime_sec: 300
+
+runn:
+  db_runner_name: "db"
+
+hooks:
+  common:
+    before:
+      - "./sql/common/before.sql"
+    after:
+      - "./sql/common/after.sql"
+
+report:
+  format: "text"

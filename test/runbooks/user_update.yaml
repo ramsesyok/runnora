@@ -1,0 +1,48 @@
+desc: ユーザー更新
+runners:
+  req:
+    endpoint: http://localhost:8081
+  db:
+    dsn: "oracle://testuser:TestPass1%21@localhost:1521/FREEPDB1"
+steps:
+  create_user:
+    req:
+      /users:
+        post:
+          body:
+            application/json:
+              name: Eve
+              email: eve@example.com
+              age: 22
+    test: steps.create_user.res.status == 201
+
+  bind_id:
+    bind:
+      user_id: steps.create_user.res.body.id
+
+  update_user:
+    req:
+      /users/{{ user_id }}:
+        put:
+          body:
+            application/json:
+              name: Eve Updated
+              age: 23
+    test: >
+      steps.update_user.res.status == 200 &&
+      steps.update_user.res.body.name == "Eve Updated" &&
+      steps.update_user.res.body.age == 23
+
+  verify_in_db:
+    db:
+      query: SELECT name, age FROM testuser.users WHERE id = {{ user_id }}
+    test: steps.verify_in_db.rows[0].NAME == "Eve Updated" && steps.verify_in_db.rows[0].AGE == "23"
+
+  update_not_found:
+    req:
+      /users/999999:
+        put:
+          body:
+            application/json:
+              name: Ghost
+    test: steps.update_not_found.res.status == 404

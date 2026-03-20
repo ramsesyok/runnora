@@ -1,0 +1,24 @@
+desc: ユーザー一覧取得
+runners:
+  req:
+    endpoint: http://localhost:8081
+  db:
+    dsn: "oracle://testuser:TestPass1%21@localhost:1521/FREEPDB1"
+steps:
+  seed_users:
+    db:
+      query: INSERT INTO testuser.users (name, email, age) VALUES ('Bob', 'bob@example.com', 25)
+
+  seed_users2:
+    db:
+      query: INSERT INTO testuser.users (name, email, age) VALUES ('Carol', 'carol@example.com', 28)
+
+  list_users:
+    req:
+      /users:
+        get:
+          body: null
+    test: steps.list_users.res.status == 200 && len(steps.list_users.res.body) == 2
+
+  check_names:
+    test: steps.list_users.res.body[0].name == "Bob" && steps.list_users.res.body[1].name == "Carol"

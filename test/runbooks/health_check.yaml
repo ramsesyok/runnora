@@ -1,0 +1,11 @@
+desc: ヘルスチェック
+runners:
+  req:
+    endpoint: http://localhost:8081
+steps:
+  get_health:
+    req:
+      /health:
+        get:
+          body: null
+    test: steps.get_health.res.status == 200 && steps.get_health.res.body.status == "ok"

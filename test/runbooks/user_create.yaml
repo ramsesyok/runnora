@@ -1,0 +1,36 @@
+desc: ユーザー作成
+runners:
+  req:
+    endpoint: http://localhost:8081
+  db:
+    dsn: "oracle://testuser:TestPass1%21@localhost:1521/FREEPDB1"
+steps:
+  create_user:
+    req:
+      /users:
+        post:
+          body:
+            application/json:
+              name: Alice
+              email: alice@example.com
+              age: 30
+    test: steps.create_user.res.status == 201 && steps.create_user.res.body.name == "Alice"
+
+  bind_user_id:
+    bind:
+      user_id: steps.create_user.res.body.id
+
+  verify_in_db:
+    db:
+      query: SELECT COUNT(*) AS cnt FROM testuser.users WHERE id = {{ user_id }}
+    test: steps.verify_in_db.rows[0].CNT == "1"
+
+  duplicate_email:
+    req:
+      /users:
+        post:
+          body:
+            application/json:
+              name: Alice2
+              email: alice@example.com
+    test: steps.duplicate_email.res.status == 409

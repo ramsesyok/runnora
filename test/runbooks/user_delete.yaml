@@ -1,0 +1,39 @@
+desc: ユーザー削除
+runners:
+  req:
+    endpoint: http://localhost:8081
+  db:
+    dsn: "oracle://testuser:TestPass1%21@localhost:1521/FREEPDB1"
+steps:
+  create_user:
+    req:
+      /users:
+        post:
+          body:
+            application/json:
+              name: Frank
+              email: frank@example.com
+    test: steps.create_user.res.status == 201
+
+  bind_id:
+    bind:
+      user_id: steps.create_user.res.body.id
+
+  delete_user:
+    req:
+      /users/{{ user_id }}:
+        delete:
+          body: null
+    test: steps.delete_user.res.status == 204
+
+  verify_deleted:
+    db:
+      query: SELECT COUNT(*) AS cnt FROM testuser.users WHERE id = {{ user_id }}
+    test: steps.verify_deleted.rows[0].CNT == "0"
+
+  delete_not_found:
+    req:
+      /users/{{ user_id }}:
+        delete:
+          body: null
+    test: steps.delete_not_found.res.status == 404
