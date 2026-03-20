@@ -1,0 +1,35 @@
+desc: gRPC ユーザー取得
+runners:
+  greq:
+    addr: localhost:50051
+    tls: false
+steps:
+  create_user:
+    greq:
+      user.v1.UserService/CreateUser:
+        message:
+          name: gRPC Dave
+          email: grpc-dave@example.com
+          age: 45
+    test: steps.create_user.res.status == 0
+
+  bind_id:
+    bind:
+      user_id: steps.create_user.res.message.id
+
+  get_user:
+    greq:
+      user.v1.UserService/GetUser:
+        message:
+          id: "{{ user_id }}"
+    test: >
+      steps.get_user.res.status == 0 &&
+      steps.get_user.res.message.email == "grpc-dave@example.com" &&
+      steps.get_user.res.message.age == 45
+
+  get_not_found:
+    greq:
+      user.v1.UserService/GetUser:
+        message:
+          id: 999999
+    test: steps.get_not_found.res.status == 5

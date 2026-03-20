@@ -1,0 +1,26 @@
+desc: gRPC ユーザー一覧取得
+runners:
+  greq:
+    addr: localhost:50051
+    tls: false
+  db:
+    dsn: "oracle://testuser:TestPass1%21@localhost:1521/FREEPDB1"
+steps:
+  seed1:
+    db:
+      query: INSERT INTO testuser.users (name, email, age) VALUES ('gRPC Bob', 'grpc-bob@example.com', 32)
+
+  seed2:
+    db:
+      query: INSERT INTO testuser.users (name, email, age) VALUES ('gRPC Carol', 'grpc-carol@example.com', 27)
+
+  list_users:
+    greq:
+      user.v1.UserService/ListUsers:
+        message: {}
+    test: steps.list_users.res.status == 0 && len(steps.list_users.res.message.users) == 2
+
+  check_names:
+    test: >
+      steps.list_users.res.message.users[0].name == "gRPC Bob" &&
+      steps.list_users.res.message.users[1].name == "gRPC Carol"

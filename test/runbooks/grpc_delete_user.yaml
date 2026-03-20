@@ -1,0 +1,38 @@
+desc: gRPC ユーザー削除
+runners:
+  greq:
+    addr: localhost:50051
+    tls: false
+  db:
+    dsn: "oracle://testuser:TestPass1%21@localhost:1521/FREEPDB1"
+steps:
+  create_user:
+    greq:
+      user.v1.UserService/CreateUser:
+        message:
+          name: gRPC Frank
+          email: grpc-frank@example.com
+    test: steps.create_user.res.status == 0
+
+  bind_id:
+    bind:
+      user_id: steps.create_user.res.message.id
+
+  delete_user:
+    greq:
+      user.v1.UserService/DeleteUser:
+        message:
+          id: "{{ user_id }}"
+    test: steps.delete_user.res.status == 0 && steps.delete_user.res.message.success == true
+
+  verify_deleted:
+    db:
+      query: SELECT COUNT(*) AS cnt FROM testuser.users WHERE id = {{ user_id }}
+    test: steps.verify_deleted.rows[0].CNT == "0"
+
+  delete_not_found:
+    greq:
+      user.v1.UserService/DeleteUser:
+        message:
+          id: "{{ user_id }}"
+    test: steps.delete_not_found.res.status == 5

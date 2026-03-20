@@ -17,6 +17,18 @@ services:
       retries: 20
       start_period: 180s
 
+  testgrpc:
+    build:
+      context: ./testgrpc
+    container_name: testgrpc
+    ports:
+      - "50051:50051"
+    environment:
+      DB_DSN: "oracle://testuser:TestPass1!@oracle:1521/FREEPDB1"
+    depends_on:
+      oracle:
+        condition: service_healthy
+
   testapi:
     build:
       context: ./testapi
