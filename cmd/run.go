@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/ramsesyok/runnora/internal/app"
 	"github.com/ramsesyok/runnora/internal/config"
+	"github.com/ramsesyok/runnora/internal/reporter"
 )
 
 func newRunCmd() *cobra.Command {
@@ -38,9 +39,20 @@ func newRunCmd() *cobra.Command {
 			report, err := runner.Run(cmd.Context(), opts)
 
 			if report != nil {
-				// レポートを標準出力に書く
-				fmt.Fprintf(cmd.OutOrStdout(), "Runbooks: %d, Passed: %d, Failed: %d\n",
-					report.Total, report.Passed, report.Failed)
+				var rep reporter.Reporter
+				if reportOut != "" {
+					r, rerr := reporter.NewFileReporter(reportFormat, reportOut)
+					if rerr != nil {
+						return fmt.Errorf("report: %w", rerr)
+					}
+					defer r.Close()
+					rep = r
+				} else {
+					rep = reporter.NewTextReporter(cmd.OutOrStdout())
+				}
+				if werr := rep.Write(report); werr != nil {
+					return fmt.Errorf("report write: %w", werr)
+				}
 			}
 
 			return err
