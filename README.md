@@ -9,7 +9,8 @@ WebAPI / gRPC シナリオテストツール。[runn](https://github.com/k1LoW/r
 - 実行時追加の SQL ファイルを `--before-sql` / `--after-sql` で動的に指定可能
 - `go-ora/v2` を使った Pure Go 実装のため、Oracle Client 不要
 - テキスト / JSON 形式のレポート出力と CI 対応の終了コード
-- `loadt` による負荷テスト、`coverage` による OpenAPI / gRPC カバレッジ計測
+- `generate` による OpenAPI からのテスト資産生成、`coverage` による OpenAPI / gRPC カバレッジ計測
+- `loadt` による負荷テスト
 
 ## インストール
 
@@ -85,6 +86,7 @@ runnora [command]
   run         runbook を実行する
   list        runbook を一覧表示する
   coverage    OpenAPI / gRPC のカバレッジを表示する
+  generate    OpenAPI 定義からテスト資産を生成する
   loadt       runbook を使って負荷テストを実行する
   new         新しい runbook を作成またはステップを追加する
   rprof       runbook 実行プロファイルを読み込んで表示する
@@ -200,6 +202,64 @@ runnora coverage --long ./runbooks/*.yml
 
 # JSON で出力して jq でフィルタリング
 runnora coverage --format json ./runbooks/*.yml | jq '.specs[].key'
+```
+
+---
+
+### `generate` — OpenAPI 定義からテスト資産を生成する
+
+OpenAPI 3.0.x / 3.1.x の定義ファイルから、生成用 runbook と case JSON を作成します。
+
+生成されるファイル:
+
+| 種類 | 出力先 |
+|---|---|
+| template runbook | `runbooks/generated/<tag>/<method>_<operationId>.template.yml` |
+| case JSON | `cases/generated/<tag>/<method>_<operationId>/default.json` |
+| suite runbook | `runbooks/generated/<tag>/<method>_<operationId>.suite.yml` |
+
+```bash
+runnora generate [options]
+```
+
+| フラグ | デフォルト | 説明 |
+|---|---|---|
+| `--config` | `./config.yaml` | 設定ファイルパス |
+| `--openapi` | — | OpenAPI ファイルパス (YAML/JSON) |
+| `--out` | `.` | 生成物の出力基底ディレクトリ |
+| `--tags` | — | 生成対象タグ (カンマ区切り) |
+| `--operation-ids` | — | 生成対象 operationId (カンマ区切り) |
+| `--mode` | `shallow` | 生成モード |
+| `--case-format` | `json` | case ファイル形式 |
+| `--case-style` | `bundled` | case スタイル |
+| `--clean` | — | 生成前に `generated/` ディレクトリを掃除する |
+| `--force` | — | 既存ファイルを強制上書きする |
+| `--skip-deprecated` | — | deprecated な operation をスキップする |
+| `--server` | — | template runbook の endpoint として使う server URL |
+| `--runner-name` | `req` | template runbook のランナー名 |
+| `--emit-manifest` | — | manifest.json を生成する |
+| `--emit-response-example` | — | レスポンス example を case に含める |
+
+生成物は再生成前提です。手編集が必要な runbook は `runbooks/evidence/` にコピーして育てる運用を推奨します。
+
+**使用例:**
+
+```bash
+# OpenAPI 定義から一式を生成
+runnora generate --openapi ./openapi/openapi.yaml --out .
+
+# users タグだけを生成
+runnora generate \
+  --openapi ./openapi/openapi.yaml \
+  --out . \
+  --tags users
+
+# 既存の generated/ を掃除して再生成
+runnora generate \
+  --openapi ./openapi/openapi.yaml \
+  --out . \
+  --clean \
+  --force
 ```
 
 ---
