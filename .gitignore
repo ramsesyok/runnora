@@ -33,4 +33,4 @@ go.work.sum
 runnora
 
 !coverage.go
-tools/wiremock-standalone-3.13.2.jar
+docs/tools/wiremock-standalone-3.13.2.jar

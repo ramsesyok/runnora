@@ -641,3 +641,5 @@ cases/generated/
 生成された template runbook、case JSON、suite runbook の役割を分けて理解すると、最初にどこを編集すればよいかが分かりやすくなります。
 
 OpenAPI が更新されたときは `generated/` を再生成し、手で育てた evidence 側のテストへ必要な変更だけを取り込みます。この運用にしておくと、API 仕様の変更に追従しながら、安定した API テストを少しずつ増やせます。
+
+生成したテストを実 API ではなく WireMock モックに向けて確認したい場合は、次に [OpenAPI 定義から runnora のテストと WireMock モックをそろえる](openapi-generate-mock.md) を参照してください。
