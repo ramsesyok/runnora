@@ -25,6 +25,7 @@ func NewRootCmd() *cobra.Command {
 	root.AddCommand(newLoadtCmd())    // 負荷テストを実行する
 	root.AddCommand(newNewCmd())      // runbook を新規作成またはステップを追加する
 	root.AddCommand(newRprofCmd())    // 実行プロファイルを表示する
+	root.AddCommand(newGenerateCmd()) // runbook生成用コマンド
 
 	return root
 }
