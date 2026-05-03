@@ -26,6 +26,7 @@ func NewRootCmd() *cobra.Command {
 	root.AddCommand(newNewCmd())      // runbook を新規作成またはステップを追加する
 	root.AddCommand(newRprofCmd())    // 実行プロファイルを表示する
 	root.AddCommand(newGenerateCmd()) // runbook生成用コマンド
+	root.AddCommand(newGenmockCmd())  // WireMock モック生成用コマンド
 
 	return root
 }
