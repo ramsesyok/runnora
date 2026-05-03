@@ -73,12 +73,7 @@ func TestGenmockCmd_OpenAPIRequired(t *testing.T) {
 		{"genmock", "build"},
 		{"genmock", "validate"},
 	} {
-		root := cmd.NewRootCmd()
-		root.SetArgs(args)
-		var errBuf bytes.Buffer
-		root.SetErr(&errBuf)
-
-		err := root.Execute()
+		_, _, err := executeRoot(t, args...)
 		if err == nil {
 			t.Fatalf("%v: expected required --openapi error, got nil", args)
 		}
@@ -92,28 +87,22 @@ func TestGenmockValidate_IntegrationOK(t *testing.T) {
 	dir := t.TempDir()
 	openAPIPath, casesPath, responsesRoot := writeGenmockFixture(t, dir)
 
-	root := cmd.NewRootCmd()
-	root.SetArgs([]string{
+	out, errOut, err := executeRoot(t,
 		"genmock", "validate",
 		"--openapi", openAPIPath,
 		"--cases", casesPath,
 		"--responses-root", responsesRoot,
 		"--fail-on-missing-operation",
 		"--fail-on-missing-body-file",
-	})
-	var out bytes.Buffer
-	var errOut bytes.Buffer
-	root.SetOut(&out)
-	root.SetErr(&errOut)
-
-	if err := root.Execute(); err != nil {
-		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut.String())
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
 	}
-	if got := out.String(); !strings.Contains(got, "OK: no issues found") {
-		t.Fatalf("validate output = %q, want OK", got)
+	if !strings.Contains(out, "OK: no issues found") {
+		t.Fatalf("validate output = %q, want OK", out)
 	}
-	if errOut.Len() != 0 {
-		t.Fatalf("unexpected diagnostics: %s", errOut.String())
+	if errOut != "" {
+		t.Fatalf("unexpected diagnostics: %s", errOut)
 	}
 }
 
@@ -122,8 +111,7 @@ func TestGenmockBuild_IntegrationWritesWireMockFiles(t *testing.T) {
 	openAPIPath, casesPath, responsesRoot := writeGenmockFixture(t, dir)
 	outDir := filepath.Join(dir, "wiremock-out")
 
-	root := cmd.NewRootCmd()
-	root.SetArgs([]string{
+	out, errOut, err := executeRoot(t,
 		"genmock", "build",
 		"--openapi", openAPIPath,
 		"--cases", casesPath,
@@ -132,17 +120,18 @@ func TestGenmockBuild_IntegrationWritesWireMockFiles(t *testing.T) {
 		"--no-auto-fallback",
 		"--fail-on-missing-operation",
 		"--fail-on-missing-body-file",
-	})
-	var out bytes.Buffer
-	var errOut bytes.Buffer
-	root.SetOut(&out)
-	root.SetErr(&errOut)
-
-	if err := root.Execute(); err != nil {
-		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut.String())
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
 	}
-	if got := out.String(); !strings.Contains(got, "build complete -> "+outDir) {
-		t.Fatalf("build output = %q, want completion line", got)
+	if !strings.Contains(out, "build complete -> "+outDir) {
+		t.Fatalf("build output = %q, want completion line", out)
+	}
+	if !strings.Contains(out, "generated 1 mappings, 0 fallbacks") {
+		t.Fatalf("build output = %q, want generated counts", out)
+	}
+	if errOut != "" {
+		t.Fatalf("unexpected diagnostics: %s", errOut)
 	}
 	if _, err := os.Stat(filepath.Join(outDir, "mappings", "getWidget__getWidget_default.json")); err != nil {
 		t.Fatalf("mapping was not written: %v", err)
@@ -159,23 +148,23 @@ func TestGenmockInit_IntegrationWritesCasesAndStubs(t *testing.T) {
 	responsesRoot := filepath.Join(dir, "mock-responses")
 	writeFile(t, openAPIPath, genmockOpenAPI)
 
-	root := cmd.NewRootCmd()
-	root.SetArgs([]string{
+	out, errOut, err := executeRoot(t,
 		"genmock", "init",
 		"--openapi", openAPIPath,
 		"--out-cases", outCasesPath,
 		"--responses-root", responsesRoot,
-	})
-	var out bytes.Buffer
-	var errOut bytes.Buffer
-	root.SetOut(&out)
-	root.SetErr(&errOut)
-
-	if err := root.Execute(); err != nil {
-		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut.String())
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
 	}
-	if got := out.String(); !strings.Contains(got, "wrote case YAML -> "+outCasesPath) {
-		t.Fatalf("init output = %q, want wrote case YAML line", got)
+	if !strings.Contains(out, "wrote case YAML -> "+outCasesPath) {
+		t.Fatalf("init output = %q, want wrote case YAML line", out)
+	}
+	if !strings.Contains(out, "generated 1 cases, 1 response stubs") {
+		t.Fatalf("init output = %q, want generated counts", out)
+	}
+	if errOut != "" {
+		t.Fatalf("unexpected diagnostics: %s", errOut)
 	}
 	if _, err := os.Stat(outCasesPath); err != nil {
 		t.Fatalf("case YAML was not written: %v", err)
@@ -190,6 +179,21 @@ func flagDefault(flag *pflag.Flag) string {
 		return "<nil>"
 	}
 	return flag.DefValue
+}
+
+func executeRoot(t *testing.T, args ...string) (string, string, error) {
+	t.Helper()
+
+	root := cmd.NewRootCmd()
+	root.SetArgs(args)
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&errOut)
+
+	err := root.Execute()
+	return out.String(), errOut.String(), err
 }
 
 func writeGenmockFixture(t *testing.T, dir string) (string, string, string) {
