@@ -10,8 +10,8 @@ import (
 
 // EmitResult は 1 つの operation に対して生成されたファイルパスを保持する。
 type EmitResult struct {
-	TemplatePath string // template runbook のパス
-	SuitePath    string // suite runbook のパス
+	TemplatePath string   // template runbook のパス
+	SuitePath    string   // suite runbook のパス
 	CasePaths    []string // case ファイルのパス (default.json のみ)
 }
 
@@ -130,8 +130,25 @@ func EmitCase(outDir string, op *OperationInfo, force bool) (string, error) {
 	return path, nil
 }
 
+type caseData struct {
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	PathParams  map[string]interface{} `json:"pathParams"`
+	QueryParams map[string]interface{} `json:"queryParams"`
+	Headers     map[string]interface{} `json:"headers"`
+	RequestBody interface{}            `json:"requestBody"`
+	Expect      caseExpect             `json:"expect"`
+}
+
+type caseExpect struct {
+	Status      int           `json:"status"`
+	BodyMode    string        `json:"bodyMode"`
+	Body        interface{}   `json:"body"`
+	IgnorePaths []interface{} `json:"ignorePaths"`
+}
+
 // buildCaseData は case JSON の内容を構築する (設計書 §12.2)。
-func buildCaseData(op *OperationInfo) map[string]interface{} {
+func buildCaseData(op *OperationInfo) caseData {
 	reqBody := op.RequestBodySample
 	if reqBody == nil && hasRequestBody(op.Method) {
 		reqBody = map[string]interface{}{"TODO": "fill in request body"}
@@ -147,18 +164,18 @@ func buildCaseData(op *OperationInfo) map[string]interface{} {
 		desc = strings.ToUpper(op.Method) + " " + op.Path + " default case"
 	}
 
-	return map[string]interface{}{
-		"name":        "default",
-		"description": desc,
-		"pathParams":  map[string]interface{}{},
-		"queryParams": map[string]interface{}{},
-		"headers":     map[string]interface{}{},
-		"requestBody": reqBody,
-		"expect": map[string]interface{}{
-			"status":      op.ExpectStatus,
-			"bodyMode":    "subset",
-			"body":        expectBody,
-			"ignorePaths": []interface{}{},
+	return caseData{
+		Name:        "default",
+		Description: desc,
+		PathParams:  map[string]interface{}{},
+		QueryParams: map[string]interface{}{},
+		Headers:     map[string]interface{}{},
+		RequestBody: reqBody,
+		Expect: caseExpect{
+			Status:      op.ExpectStatus,
+			BodyMode:    "subset",
+			Body:        expectBody,
+			IgnorePaths: []interface{}{},
 		},
 	}
 }
