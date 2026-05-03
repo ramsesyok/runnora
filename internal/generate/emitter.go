@@ -74,7 +74,7 @@ func buildTemplateContent(op *OperationInfo, openAPIPath, runnerName string) str
 	sb.WriteString("\nrunners:\n")
 	sb.WriteString("  " + runnerName + ":\n")
 	sb.WriteString("    endpoint: \"{{ env `RUNNORA_BASE_URL` }}\"\n")
-	sb.WriteString("    openapi3: \"" + openAPIPath + "\"\n")
+	sb.WriteString("    openapi3: \"" + filepath.ToSlash(openAPIPath) + "\"\n")
 
 	// vars
 	sb.WriteString("\nvars:\n")

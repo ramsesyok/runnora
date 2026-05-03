@@ -42,3 +42,24 @@ func TestBuildCaseDataMarshalKeepsTopLevelFieldOrder(t *testing.T) {
 		last = idx
 	}
 }
+
+func TestBuildTemplateContentNormalizesOpenAPIPathSeparators(t *testing.T) {
+	op := &OperationInfo{
+		Method:       "get",
+		Path:         "/pets",
+		Summary:      "List pets",
+		PrimaryTag:   "pet",
+		OperationID:  "listPets",
+		OperationKey: "get_listPets",
+		RunbookPath:  "/pets",
+	}
+
+	got := buildTemplateContent(op, `tutorial\openapi.yaml`, "req")
+
+	if !strings.Contains(got, `    openapi3: "tutorial/openapi.yaml"`) {
+		t.Fatalf("template did not normalize openapi3 path separators:\n%s", got)
+	}
+	if strings.Contains(got, `tutorial\openapi.yaml`) {
+		t.Fatalf("template still contains Windows path separators:\n%s", got)
+	}
+}
