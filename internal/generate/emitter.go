@@ -37,7 +37,7 @@ func EmitTemplate(outDir string, op *OperationInfo, openAPIPath, runnerName stri
 		}
 	}
 
-	content := buildTemplateContent(op, openAPIPath, runnerName)
+	content := buildTemplateContent(op, runnerName)
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		return "", fmt.Errorf("generate: write template %s: %w", path, err)
 	}
@@ -45,7 +45,7 @@ func EmitTemplate(outDir string, op *OperationInfo, openAPIPath, runnerName stri
 }
 
 // buildTemplateContent は template runbook の YAML 文字列を組み立てる。
-func buildTemplateContent(op *OperationInfo, openAPIPath, runnerName string) string {
+func buildTemplateContent(op *OperationInfo, runnerName string) string {
 	var sb strings.Builder
 
 	// desc
@@ -73,8 +73,7 @@ func buildTemplateContent(op *OperationInfo, openAPIPath, runnerName string) str
 	// runners
 	sb.WriteString("\nrunners:\n")
 	sb.WriteString("  " + runnerName + ":\n")
-	sb.WriteString("    endpoint: \"{{ env `RUNNORA_BASE_URL` }}\"\n")
-	sb.WriteString("    openapi3: \"" + normalizeYAMLPath(openAPIPath) + "\"\n")
+	sb.WriteString("    endpoint: ${RUNNORA_BASE_URL}\n")
 
 	// vars
 	sb.WriteString("\nvars:\n")

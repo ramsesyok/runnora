@@ -41,6 +41,14 @@ docs/tutorial/openapi.yaml
 
 WireMock standalone jar は Git に登録しない前提です。ここでは `docs/tools/wiremock-standalone-3.13.2.jar` に置いたものとして説明します。
 
+jar は Maven Central から取得します。
+
+```bash
+mkdir -p docs/tools
+curl -L -o docs/tools/wiremock-standalone-3.13.2.jar \
+  https://repo1.maven.org/maven2/org/wiremock/wiremock-standalone/3.13.2/wiremock-standalone-3.13.2.jar
+```
+
 ## 作成するもの
 
 このチュートリアルでは、次のファイルとディレクトリを作ります。
@@ -116,6 +124,8 @@ generated <n> cases, <n> response stubs
 ```
 
 `mock-cases.yaml` には OpenAPI の `operationId` ごとに case の雛形が作られます。`mock-responses/` には、それぞれの case が参照する JSON stub が作られます。
+
+> **Note**: `runnora genmock init` は `--tags` フィルタがないため、OpenAPI の全 operation が対象になります。`runnora generate --tags pet` が `pet` tag だけを生成するのと違い、`store`、`user` tag の case も生成されます。不要な case は削除するか、`runnora genmock validate` の警告として残しておいて構いません。
 
 ## 3. runnora の case JSON を決める
 
@@ -309,6 +319,14 @@ runnora genmock validate \
 ```text
 OK: no issues found
 ```
+
+`genmock init` がリクエストマッチャーなしの case（`getInventory_default`、`logoutUser_default` など、パラメータを持たない GET 系エンドポイント）を生成した場合は、次のような警告が出ます。
+
+```text
+warning: cases[N]: case "getInventory_default" has no request matchers and is not a fallback
+```
+
+これはエラーではありません。exit code 0 のままです。マッチャーなし case を fallback として扱いたい場合は、`mock-cases.yaml` に `fallback: true` を追加します。
 
 よく検出されるのは次のような問題です。
 

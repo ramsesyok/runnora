@@ -188,7 +188,16 @@ cases/generated/pet/get_getPetById/default.json
 runbooks/generated/pet/post_addPet.template.yml
 runbooks/generated/pet/post_addPet.suite.yml
 cases/generated/pet/post_addPet/default.json
+
+runbooks/generated/pet/put_updatePet.template.yml
+runbooks/generated/pet/put_updatePet.suite.yml
+cases/generated/pet/put_updatePet/default.json
+
+runbooks/generated/pet/post_updatePetWithForm.template.yml
+...
 ```
+
+`pet` tag に含まれる全 operation（`findPetsByTags` のみ `--skip-deprecated` で除外）が生成されます。このチュートリアルでは主に `findPetsByStatus` と `getPetById` を題材にします。
 
 ファイル名は `<method>_<operationId>` です。OpenAPI の `operationId` が変わると、生成されるファイル名も変わります。
 
@@ -213,11 +222,13 @@ cases/generated/pet/get_findPetsByStatus/default.json
   "expect": {
     "status": 200,
     "bodyMode": "subset",
-    "body": {},
+    "body": [],
     "ignorePaths": []
   }
 }
 ```
+
+`findPetsByStatus` はレスポンスが配列なので、`body` の初期値は `[]` です。オブジェクトを返す API（`getPetById` など）では `body: {}` になります。
 
 各項目の意味は次のとおりです。
 
@@ -464,6 +475,10 @@ query parameter を使う API では、case JSON に値を書いたあと、temp
 `runbooks/generated/pet/get_findPetsByStatus.template.yml` の該当箇所を確認します。
 
 ```yaml
+runners:
+  req:
+    endpoint: ${RUNNORA_BASE_URL}
+
 steps:
   call_api:
     req:
@@ -482,6 +497,8 @@ steps:
         get:
           headers: "{{ vars.case.headers }}"
 ```
+
+`endpoint` の値は `${RUNNORA_BASE_URL}` という shell 変数展開形式で書きます。`RUNNORA_BASE_URL` 環境変数が読み込まれます。
 
 この変更を加えると、`available.json`、`pending.json`、`sold.json` のように case JSON だけを増やして、同じ template runbook で複数の検索条件を実行できます。
 

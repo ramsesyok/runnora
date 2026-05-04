@@ -43,7 +43,7 @@ func TestBuildCaseDataMarshalKeepsTopLevelFieldOrder(t *testing.T) {
 	}
 }
 
-func TestBuildTemplateContentNormalizesOpenAPIPathSeparators(t *testing.T) {
+func TestBuildTemplateContentHasEndpoint(t *testing.T) {
 	op := &OperationInfo{
 		Method:       "get",
 		Path:         "/pets",
@@ -54,13 +54,13 @@ func TestBuildTemplateContentNormalizesOpenAPIPathSeparators(t *testing.T) {
 		RunbookPath:  "/pets",
 	}
 
-	got := buildTemplateContent(op, `tutorial\openapi.yaml`, "req")
+	got := buildTemplateContent(op, "req")
 
-	if !strings.Contains(got, `    openapi3: "tutorial/openapi.yaml"`) {
-		t.Fatalf("template did not normalize openapi3 path separators:\n%s", got)
+	if !strings.Contains(got, "endpoint: ${RUNNORA_BASE_URL}") {
+		t.Fatalf("template does not contain RUNNORA_BASE_URL endpoint:\n%s", got)
 	}
-	if strings.Contains(got, `tutorial\openapi.yaml`) {
-		t.Fatalf("template still contains Windows path separators:\n%s", got)
+	if strings.Contains(got, "openapi3:") {
+		t.Fatalf("template should not contain openapi3 field:\n%s", got)
 	}
 }
 
