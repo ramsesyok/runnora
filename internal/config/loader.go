@@ -40,14 +40,14 @@ func LoadWithDefaults(data []byte) (*Config, error) {
 // applyDefaults はゼロ値のフィールドにデフォルト値を設定する。
 // YAML で明示的に 0 を書いた場合もデフォルト値に置き換わるため注意。
 func applyDefaults(cfg *Config) {
-	if cfg.DB.MaxOpenConns == 0 {
-		cfg.DB.MaxOpenConns = defaultMaxOpenConns
+	if cfg.Oracle.MaxOpenConns == 0 {
+		cfg.Oracle.MaxOpenConns = defaultMaxOpenConns
 	}
-	if cfg.DB.MaxIdleConns == 0 {
-		cfg.DB.MaxIdleConns = defaultMaxIdleConns
+	if cfg.Oracle.MaxIdleConns == 0 {
+		cfg.Oracle.MaxIdleConns = defaultMaxIdleConns
 	}
-	if cfg.DB.ConnMaxLifetimeSec == 0 {
-		cfg.DB.ConnMaxLifetimeSec = defaultConnMaxLifetimeSec
+	if cfg.Oracle.ConnMaxLifetimeSec == 0 {
+		cfg.Oracle.ConnMaxLifetimeSec = defaultConnMaxLifetimeSec
 	}
 	if cfg.Report.Format == "" {
 		cfg.Report.Format = defaultReportFormat

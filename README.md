@@ -30,25 +30,28 @@ go build -o runnora .
 
 ### 1. 設定ファイルを作成する
 
+```bash
+runnora init
+```
+
+Oracle DB の SQL フックを使う場合は `oracle.dsn` を設定します。HTTP / gRPC の runbook だけを実行する場合、`oracle.dsn` は空のままで実行できます。
+
 ```yaml
 # config.yaml
 app:
   name: runnora
 
-db:
+oracle:
   driver: oracle
-  dsn: "oracle://user:pass@host:1521/service"
+  dsn: ""
   max_open_conns: 5
   max_idle_conns: 2
   conn_max_lifetime_sec: 300
 
 hooks:
   common:
-    before:
-      - "./sql/common/session_init.sql"
-      - "./sql/common/master_seed.sql"
-    after:
-      - "./sql/common/session_cleanup.sql"
+    before: []
+    after: []
 
 report:
   format: "text"
@@ -83,6 +86,7 @@ runnora run --config ./config.yaml runbooks/hello_world.yml
 runnora [command]
 
 コマンド一覧:
+  init       デフォルトの config.yaml を作成する
   run         runbook を実行する
   list        runbook を一覧表示する
   coverage    OpenAPI / gRPC のカバレッジを表示する
@@ -91,6 +95,28 @@ runnora [command]
   new         新しい runbook を作成またはステップを追加する
   rprof       runbook 実行プロファイルを読み込んで表示する
   version     バージョン情報を表示する
+```
+
+---
+
+### `init` — 設定ファイルを作成する
+
+```bash
+runnora init [options]
+```
+
+| フラグ | デフォルト | 説明 |
+|---|---|---|
+| `--out` | `config.yaml` | 出力先 config ファイルパス |
+| `--dsn` | — | Oracle DSN (SQL フックを使う場合に指定) |
+| `--force` | `false` | 既存ファイルを上書きする |
+
+**使用例:**
+
+```bash
+runnora init
+runnora init --dsn "oracle://user:pass@host:1521/service"
+runnora init --out ./config/config.yaml --force
 ```
 
 ---
@@ -378,7 +404,7 @@ runnora version
 app:
   name: runnora                        # アプリケーション名
 
-db:
+oracle:
   driver: oracle                       # ドライバ (oracle)
   dsn: "oracle://user:pass@host:1521/service"  # 接続文字列
   max_open_conns: 10                   # 最大オープン接続数 (default: 10)
@@ -386,7 +412,6 @@ db:
   conn_max_lifetime_sec: 300           # 接続最大ライフタイム秒 (default: 300)
 
 runn:
-  db_runner_name: "db"                 # runbook 内での DB ランナー名 (default: "db")
   trace: false                         # トレース出力
 
 hooks:
@@ -401,6 +426,8 @@ report:
   format: "text"                       # 出力形式 (text | json | junit)
   output: ""                           # ファイル出力先 (省略時は標準出力)
 ```
+
+`oracle` セクションは runnora の SQL/PLSQL フック用接続設定です。runbook 内に書く通常の runn DB runner 設定とは独立しています。SQL フックを使わない場合、`oracle.dsn` は空のままで構いません。
 
 ## セキュリティ
 

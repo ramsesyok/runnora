@@ -383,6 +383,12 @@ java -jar docs/tools/wiremock-standalone-3.13.2.jar \
 
 runnora の接続先を WireMock に向けます。
 
+`runnora run` はデフォルトで `./config.yaml` を読み込みます。まだ設定ファイルがない場合は、先にデフォルト設定を作成します。このチュートリアルでは SQL フックを使わないため、`oracle.dsn` は空のままで構いません。
+
+```bash
+runnora init
+```
+
 PowerShell:
 
 ```powershell

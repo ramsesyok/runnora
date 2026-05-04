@@ -53,13 +53,14 @@ type AppError struct {
 // hookError はフック実行中に発生したエラーを示すラッパー。
 //
 // 設計の意図:
-//   runn の BeforeFunc/AfterFunc でエラーが発生すると、
-//   runn は runbook を失敗として記録する (RunResult.Err にエラーが入る)。
-//   しかし runbook 失敗 (exit 1) とフック失敗 (exit 4) では終了コードが異なる。
 //
-//   そこでフックエラーを hookError でラップし、
-//   op.Operators() の結果を処理する際に errors.As(rr.Err, &hErr) で
-//   「これはフック起因の失敗か」を区別できるようにしている。
+//	runn の BeforeFunc/AfterFunc でエラーが発生すると、
+//	runn は runbook を失敗として記録する (RunResult.Err にエラーが入る)。
+//	しかし runbook 失敗 (exit 1) とフック失敗 (exit 4) では終了コードが異なる。
+//
+//	そこでフックエラーを hookError でラップし、
+//	op.Operators() の結果を処理する際に errors.As(rr.Err, &hErr) で
+//	「これはフック起因の失敗か」を区別できるようにしている。
 type hookError struct {
 	cause error
 }
@@ -73,7 +74,7 @@ func (e *AppError) Error() string {
 
 func (e *AppError) Unwrap() error { return e.Cause }
 
-// ExecutorFactory は DBConfig から oracle.Executor を生成するファクトリ関数型。
+// ExecutorFactory は OracleConfig から oracle.Executor を生成するファクトリ関数型。
 //
 // これが「テスト容易性のための DI ポイント」。
 //
@@ -82,11 +83,11 @@ func (e *AppError) Unwrap() error { return e.Cause }
 //
 // Runner に直接 *sql.DB を渡さずファクトリ関数を渡す設計にすることで、
 // 接続エラーのシナリオ (エラーを返す factory) もテストできる。
-type ExecutorFactory func(*config.DBConfig) (oracle.Executor, error)
+type ExecutorFactory func(*config.OracleConfig) (oracle.Executor, error)
 
 // DefaultExecutorFactory は oracle.Open を使って OracleExecutor を生成する。
 // 本番環境で使用するデフォルトの factory。
-func DefaultExecutorFactory(cfg *config.DBConfig) (oracle.Executor, error) {
+func DefaultExecutorFactory(cfg *config.OracleConfig) (oracle.Executor, error) {
 	db, err := oracle.Open(cfg)
 	if err != nil {
 		return nil, err
@@ -108,7 +109,7 @@ type RunnerOption func(*Runner)
 //
 // テスト時に stub executor を注入するために使う:
 //
-//	runner := app.NewRunner(app.WithExecutorFactory(func(cfg *config.DBConfig) (oracle.Executor, error) {
+//	runner := app.NewRunner(app.WithExecutorFactory(func(cfg *config.OracleConfig) (oracle.Executor, error) {
 //	    return &stubExecutor{}, nil  // Oracle 不要
 //	}))
 func WithExecutorFactory(f ExecutorFactory) RunnerOption {
@@ -154,19 +155,24 @@ func (r *Runner) Run(ctx context.Context, opts *config.RunOptions) (*reporter.Re
 		return nil, &AppError{ExitCode: 2, Cause: err}
 	}
 
-	// Oracle 接続: ExecutorFactory 経由で Executor を取得
-	// テスト時は WithExecutorFactory で stub を注入できる
-	exec, err := r.factory(&cfg.DB)
-	if err != nil {
-		return nil, &AppError{ExitCode: 3, Cause: fmt.Errorf("db: %w", err)}
-	}
-	defer exec.Close() // 関数終了時に接続プールを確実に閉じる
-
 	// フックファイルリストを組み立てる。
 	// 順序: config.common.before → CLI --before-sql (before)
 	//        CLI --after-sql → config.common.after (after)
 	beforeFiles := config.BuildBeforeFiles(cfg, opts)
 	afterFiles := config.BuildAfterFiles(cfg, opts)
+	needsDB := len(beforeFiles) > 0 || len(afterFiles) > 0
+
+	var exec oracle.Executor
+	if needsDB {
+		// Oracle 接続: SQL フックが設定されている場合のみ ExecutorFactory 経由で Executor を取得する。
+		// DB を使わない runbook では oracle.dsn が空でも実行できる。
+		var err error
+		exec, err = r.factory(&cfg.Oracle)
+		if err != nil {
+			return nil, &AppError{ExitCode: 3, Cause: fmt.Errorf("oracle: %w", err)}
+		}
+		defer exec.Close() // 関数終了時に接続プールを確実に閉じる
+	}
 
 	// フックファイルの存在確認: 実行前に全ての欠損を検出して報告
 	resolver := hook.NewResolver()
@@ -266,9 +272,10 @@ func (r *Runner) Run(ctx context.Context, opts *config.RunOptions) (*reporter.Re
 //   - runn.FailFast:   --fail-fast フラグが有効な場合に追加
 //
 // hookError によるエラーのラップ:
-//   フックエラーを hookError でラップして返すことで、
-//   Runner.Run 側で errors.As(rr.Err, &hErr) によって
-//   フック起因の失敗かを識別できる。
+//
+//	フックエラーを hookError でラップして返すことで、
+//	Runner.Run 側で errors.As(rr.Err, &hErr) によって
+//	フック起因の失敗かを識別できる。
 func buildRunnOptions(
 	ctx context.Context,
 	cfg *config.Config,
@@ -280,26 +287,30 @@ func buildRunnOptions(
 		// runbook ファイルから親ディレクトリ (../) へのアクセスを許可する。
 		// 例: runbook が ./runbooks/ にあり、SQL ファイルが ./sql/ にある構成で必要。
 		runn.Scopes("read:parent"),
+	}
 
+	if len(beforeFiles) > 0 {
 		// BeforeFunc は runn が各 runbook を実行する直前に呼ばれる。
 		// before SQL ファイルをここで実行することで、テスト用 DB 状態を整備する。
-		runn.BeforeFunc(func(rr *runn.RunResult) error {
+		runnOpts = append(runnOpts, runn.BeforeFunc(func(rr *runn.RunResult) error {
 			if err := hook.RunBefore(ctx, exec, beforeFiles); err != nil {
 				// hookError でラップして Runner.Run 側で識別できるようにする
 				return &hookError{cause: err}
 			}
 			return nil
-		}),
+		}))
+	}
 
+	if len(afterFiles) > 0 {
 		// AfterFunc は runn が各 runbook を実行した直後に呼ばれる。
 		// after SQL ファイルをここで実行して DB を後始末する。
 		// runbook が失敗していても AfterFunc は呼ばれる (cleanup guaranteed)。
-		runn.AfterFunc(func(rr *runn.RunResult) error {
+		runnOpts = append(runnOpts, runn.AfterFunc(func(rr *runn.RunResult) error {
 			if err := hook.RunAfter(ctx, exec, afterFiles); err != nil {
 				return &hookError{cause: err}
 			}
 			return nil
-		}),
+		}))
 	}
 
 	if opts.FailFast {

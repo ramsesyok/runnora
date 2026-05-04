@@ -23,6 +23,7 @@ func NewRootCmd() *cobra.Command {
 	root.AddCommand(newListCmd())     // runbook を一覧表示する
 	root.AddCommand(newCoverageCmd()) // OpenAPI/gRPC カバレッジを計測する
 	root.AddCommand(newLoadtCmd())    // 負荷テストを実行する
+	root.AddCommand(newInitCmd())     // デフォルトの config.yaml を作成する
 	root.AddCommand(newNewCmd())      // runbook を新規作成またはステップを追加する
 	root.AddCommand(newRprofCmd())    // 実行プロファイルを表示する
 	root.AddCommand(newGenerateCmd()) // runbook生成用コマンド

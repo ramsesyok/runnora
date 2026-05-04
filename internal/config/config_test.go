@@ -10,7 +10,7 @@ import (
 
 func TestConfig_DBDriver_IsOracle(t *testing.T) {
 	raw := `
-db:
+oracle:
   driver: oracle
   dsn: "oracle://user:pass@host:1521/svc"
   max_open_conns: 5
@@ -19,14 +19,14 @@ db:
 	if err := yaml.Unmarshal([]byte(raw), &cfg); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if cfg.DB.Driver != "oracle" {
-		t.Errorf("got %q, want %q", cfg.DB.Driver, "oracle")
+	if cfg.Oracle.Driver != "oracle" {
+		t.Errorf("got %q, want %q", cfg.Oracle.Driver, "oracle")
 	}
-	if cfg.DB.DSN != "oracle://user:pass@host:1521/svc" {
-		t.Errorf("got %q, want oracle DSN", cfg.DB.DSN)
+	if cfg.Oracle.DSN != "oracle://user:pass@host:1521/svc" {
+		t.Errorf("got %q, want oracle DSN", cfg.Oracle.DSN)
 	}
-	if cfg.DB.MaxOpenConns != 5 {
-		t.Errorf("got %d, want 5", cfg.DB.MaxOpenConns)
+	if cfg.Oracle.MaxOpenConns != 5 {
+		t.Errorf("got %d, want 5", cfg.Oracle.MaxOpenConns)
 	}
 }
 

@@ -1,7 +1,7 @@
 app:
   name: runnora-test
 
-db:
+oracle:
   driver: oracle
   dsn: "oracle://testuser:TestPass1!@localhost:1521/FREEPDB1"
   max_open_conns: 5

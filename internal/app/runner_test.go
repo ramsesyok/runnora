@@ -24,11 +24,11 @@ func (n *noopExecutor) Close() error                               { return nil 
 
 var _ oracle.Executor = (*noopExecutor)(nil)
 
-func noopFactory(_ *config.DBConfig) (oracle.Executor, error) {
+func noopFactory(_ *config.OracleConfig) (oracle.Executor, error) {
 	return &noopExecutor{}, nil
 }
 
-func failingFactory(_ *config.DBConfig) (oracle.Executor, error) {
+func failingFactory(_ *config.OracleConfig) (oracle.Executor, error) {
 	return nil, errors.New("connection refused")
 }
 
@@ -118,10 +118,35 @@ func TestRunner_Run_NoRunbooks_ReturnsExitCode2(t *testing.T) {
 	}
 }
 
-func TestRunner_Run_DBConnectionFail_ReturnsExitCode3(t *testing.T) {
+func TestRunner_Run_NoHooks_SkipsDBConnection(t *testing.T) {
+	r := app.NewRunner(app.WithExecutorFactory(failingFactory))
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	report, err := r.Run(context.Background(), &config.RunOptions{
+		ConfigPath:   validConfigPath(t),
+		RunbookPaths: []string{writeHTTPRunbook(t, srv.URL)},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if report == nil || report.Passed != 1 {
+		t.Fatalf("expected one passed runbook, got report=%+v", report)
+	}
+}
+
+func TestRunner_Run_HooksDBConnectionFail_ReturnsExitCode3(t *testing.T) {
+	hookFile := filepath.Join(t.TempDir(), "hook.sql")
+	if err := os.WriteFile(hookFile, []byte("BEGIN NULL; END;"), 0o600); err != nil {
+		t.Fatalf("setup hook: %v", err)
+	}
+
 	r := app.NewRunner(app.WithExecutorFactory(failingFactory))
 	_, err := r.Run(context.Background(), &config.RunOptions{
-		ConfigPath:   validConfigPath(t),
+		ConfigPath:   configWithBeforeHook(t, hookFile),
 		RunbookPaths: []string{"any.yml"},
 	})
 	if err == nil {
@@ -138,7 +163,7 @@ func TestRunner_Run_DBConnectionFail_ReturnsExitCode3(t *testing.T) {
 
 func TestRunner_Run_BeforeHookFail_ReturnsExitCode4(t *testing.T) {
 	failingExec := &failingExecutor{}
-	r := app.NewRunner(app.WithExecutorFactory(func(_ *config.DBConfig) (oracle.Executor, error) {
+	r := app.NewRunner(app.WithExecutorFactory(func(_ *config.OracleConfig) (oracle.Executor, error) {
 		return failingExec, nil
 	}))
 

@@ -31,7 +31,7 @@ import (
 // errors.Is(err, oracle.ErrEmptyDSN) で検査できる。
 var ErrEmptyDSN = errors.New("oracle: DSN must not be empty")
 
-// Open は config.DBConfig をもとに Oracle DB への接続プールを開く。
+// Open は config.OracleConfig をもとに Oracle DB への接続プールを開く。
 //
 // 処理の流れ:
 //  1. DSN の空チェック (ErrEmptyDSN を返す)
@@ -45,7 +45,7 @@ var ErrEmptyDSN = errors.New("oracle: DSN must not be empty")
 //   - ConnMaxLifetime: 接続を再利用できる最大時間。Oracle 側の接続タイムアウトより短く設定推奨。
 //
 // 返り値の *sql.DB は defer exec.Close() で必ず閉じること。
-func Open(cfg *config.DBConfig) (*sql.DB, error) {
+func Open(cfg *config.OracleConfig) (*sql.DB, error) {
 	if cfg.DSN == "" {
 		return nil, ErrEmptyDSN
 	}

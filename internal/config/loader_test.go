@@ -15,14 +15,14 @@ func TestLoadWithDefaults_AppliesDefaultsWhenFieldsMissing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if cfg.DB.MaxOpenConns != 10 {
-		t.Errorf("got MaxOpenConns=%d, want 10", cfg.DB.MaxOpenConns)
+	if cfg.Oracle.MaxOpenConns != 10 {
+		t.Errorf("got MaxOpenConns=%d, want 10", cfg.Oracle.MaxOpenConns)
 	}
-	if cfg.DB.MaxIdleConns != 2 {
-		t.Errorf("got MaxIdleConns=%d, want 2", cfg.DB.MaxIdleConns)
+	if cfg.Oracle.MaxIdleConns != 2 {
+		t.Errorf("got MaxIdleConns=%d, want 2", cfg.Oracle.MaxIdleConns)
 	}
-	if cfg.DB.ConnMaxLifetimeSec != 300 {
-		t.Errorf("got ConnMaxLifetimeSec=%d, want 300", cfg.DB.ConnMaxLifetimeSec)
+	if cfg.Oracle.ConnMaxLifetimeSec != 300 {
+		t.Errorf("got ConnMaxLifetimeSec=%d, want 300", cfg.Oracle.ConnMaxLifetimeSec)
 	}
 	if cfg.Report.Format != "text" {
 		t.Errorf("got Report.Format=%q, want %q", cfg.Report.Format, "text")
