@@ -390,6 +390,12 @@ suite runbook を実行すると、次の順に処理されます。
 
 API の接続先は `RUNNORA_BASE_URL` で指定します。
 
+`runnora run` はデフォルトで `./config.yaml` を読み込みます。まだ設定ファイルがない場合は、先にデフォルト設定を作成します。このチュートリアルでは SQL フックを使わないため、`oracle.dsn` は空のままで構いません。
+
+```bash
+runnora init
+```
+
 PowerShell の例:
 
 ```powershell

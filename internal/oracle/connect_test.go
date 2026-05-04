@@ -9,7 +9,7 @@ import (
 )
 
 func TestOpen_EmptyDSN_ReturnsError(t *testing.T) {
-	cfg := &config.DBConfig{Driver: "oracle", DSN: ""}
+	cfg := &config.OracleConfig{Driver: "oracle", DSN: ""}
 	_, err := oracle.Open(cfg)
 	if err == nil {
 		t.Fatal("expected error for empty DSN, got nil")

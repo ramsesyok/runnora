@@ -4,7 +4,7 @@
 //
 //	app:
 //	  name: runnora
-//	db:
+//	oracle:
 //	  driver: oracle
 //	  dsn: "oracle://user:pass@host:1521/service"
 //	hooks:
@@ -19,7 +19,7 @@ package config
 // yaml タグにより YAML ファイルのキー名と対応している。
 type Config struct {
 	App      AppConfig      `yaml:"app"`
-	DB       DBConfig       `yaml:"db"`
+	Oracle   OracleConfig   `yaml:"oracle"`
 	Runn     RunnConfig     `yaml:"runn"`
 	Hooks    HooksConfig    `yaml:"hooks"`
 	Generate GenerateConfig `yaml:"generate"`
@@ -31,9 +31,9 @@ type AppConfig struct {
 	Name string `yaml:"name"` // アプリケーション名 (ログ・レポートに使用)
 }
 
-// DBConfig は Oracle DB 接続設定。
+// OracleConfig は SQL/PLSQL フックで使う Oracle 接続設定。
 // go-ora (sijms/go-ora/v2) の Pure Go ドライバを使うため Oracle Client 不要。
-type DBConfig struct {
+type OracleConfig struct {
 	Driver             string `yaml:"driver"`                // ドライバ名。現在は "oracle" のみサポート
 	DSN                string `yaml:"dsn"`                   // 接続文字列。例: "oracle://user:pass@host:1521/service"
 	MaxOpenConns       int    `yaml:"max_open_conns"`        // 最大オープン接続数。0 の場合はデフォルト (10) が適用される
