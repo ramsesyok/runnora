@@ -10,7 +10,7 @@ require (
 	github.com/k1LoW/runn v1.6.1
 	github.com/k1LoW/stopw v0.9.2
 	github.com/pb33f/libopenapi v0.34.3
-	github.com/ramsesyok/oapi2wire v0.1.0
+	github.com/ramsesyok/oapi2wire v0.1.1
 	github.com/ryo-yamaoka/otchkiss v0.2.1
 	github.com/sijms/go-ora/v2 v2.9.0
 	github.com/spf13/cobra v1.10.2
@@ -188,5 +188,3 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 	modernc.org/sqlite v1.46.1 // indirect
 )
-
-replace github.com/ramsesyok/oapi2wire => C:/Users/ramse/Projects/oapi2wire
