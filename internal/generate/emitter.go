@@ -74,7 +74,7 @@ func buildTemplateContent(op *OperationInfo, openAPIPath, runnerName string) str
 	sb.WriteString("\nrunners:\n")
 	sb.WriteString("  " + runnerName + ":\n")
 	sb.WriteString("    endpoint: \"{{ env `RUNNORA_BASE_URL` }}\"\n")
-	sb.WriteString("    openapi3: \"" + filepath.ToSlash(openAPIPath) + "\"\n")
+	sb.WriteString("    openapi3: \"" + normalizeYAMLPath(openAPIPath) + "\"\n")
 
 	// vars
 	sb.WriteString("\nvars:\n")
@@ -98,6 +98,10 @@ func buildTemplateContent(op *OperationInfo, openAPIPath, runnerName string) str
 	sb.WriteString("      current.res.status == vars.case.expect.status\n")
 
 	return sb.String()
+}
+
+func normalizeYAMLPath(path string) string {
+	return strings.ReplaceAll(filepath.ToSlash(path), `\`, "/")
 }
 
 // EmitCase は default case JSON ファイルを生成して書き出す。

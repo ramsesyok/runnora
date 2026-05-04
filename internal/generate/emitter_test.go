@@ -63,3 +63,11 @@ func TestBuildTemplateContentNormalizesOpenAPIPathSeparators(t *testing.T) {
 		t.Fatalf("template still contains Windows path separators:\n%s", got)
 	}
 }
+
+func TestNormalizeYAMLPath(t *testing.T) {
+	got := normalizeYAMLPath(`docs\tutorial/openapi.yaml`)
+	want := "docs/tutorial/openapi.yaml"
+	if got != want {
+		t.Fatalf("normalizeYAMLPath() = %q, want %q", got, want)
+	}
+}
