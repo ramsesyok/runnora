@@ -127,6 +127,22 @@ generated <n> cases, <n> response stubs
 
 > **Note**: `runnora genmock init` は `--tags` フィルタがないため、OpenAPI の全 operation が対象になります。`runnora generate --tags pet` が `pet` tag だけを生成するのと違い、`store`、`user` tag の case も生成されます。不要な case は削除するか、`runnora genmock validate` の警告として残しておいて構いません。
 
+生成された `mock-cases.yaml` には、リクエストマッチャーのプレースホルダーとして `equalTo: "TODO"` が入っています。例えば `getPetById` の case は次のようになります。
+
+```yaml
+- id: getPetById_default
+  operationId: getPetById
+  request:
+    pathParams:
+      petId:
+        equalTo: "TODO"
+  response:
+    status: 200
+    bodyFile: pet/getPetById/default.json
+```
+
+`equalTo: "TODO"` のままでは `runnora genmock build` を実行しても WireMock が正しくリクエストを照合できません。次のステップで、実際にテストしたいリクエスト値に書き換えます。
+
 ## 3. runnora の case JSON を決める
 
 最初は `GET /pet/{petId}` のテストを、WireMock に対して通します。
