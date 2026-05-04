@@ -174,6 +174,8 @@ runnora generate \
   --force
 ```
 
+> **注意**: `--clean` を指定すると `runbooks/generated/` と `cases/generated/` が削除されてから再生成されます。case JSON を手で編集した後に `--clean --force` を実行すると、その編集内容は失われます。case を育てた後は `--force` のみ（`--clean` なし）を使うか、編集済みの case JSON をあらかじめ別の場所にコピーしてから実行してください。
+
 生成後、次のようなファイルが作られます。
 
 ```text
@@ -275,7 +277,7 @@ enum:
   "expect": {
     "status": 200,
     "bodyMode": "subset",
-    "body": {},
+    "body": [],
     "ignorePaths": []
   }
 }
