@@ -32,6 +32,7 @@ func newGenmockInitCmd() *cobra.Command {
 		openAPIPath   string
 		outCasesPath  string
 		responsesRoot string
+		tagsStr       string
 		force         bool
 		strict        bool
 	)
@@ -46,6 +47,7 @@ func newGenmockInitCmd() *cobra.Command {
 				ResponsesRoot: cleanCLIPath(responsesRoot),
 				Force:         force,
 				Strict:        strict,
+				Tags:          splitTrim(tagsStr),
 			})
 			if result != nil {
 				printGenmockDiagnostics(cmd.ErrOrStderr(), result.Diagnostics)
@@ -63,6 +65,7 @@ func newGenmockInitCmd() *cobra.Command {
 	cmd.Flags().StringVar(&openAPIPath, "openapi", "", "OpenAPI ファイルパス (YAML/JSON)")
 	cmd.Flags().StringVar(&outCasesPath, "out-cases", "mock-cases.yaml", "生成する mock case YAML のパス")
 	cmd.Flags().StringVar(&responsesRoot, "responses-root", "mock-responses", "response stub の出力ディレクトリ")
+	cmd.Flags().StringVar(&tagsStr, "tags", "", "生成対象タグ (カンマ区切り): 例 users,orders")
 	cmd.Flags().BoolVar(&force, "force", false, "既存ファイルを強制上書きする")
 	cmd.Flags().BoolVar(&strict, "strict", false, "警告をエラーとして扱う")
 	_ = cmd.MarkFlagRequired("openapi")
@@ -76,6 +79,7 @@ func newGenmockBuildCmd() *cobra.Command {
 		casesPath              string
 		responsesRoot          string
 		outDir                 string
+		tagsStr                string
 		clean                  bool
 		strict                 bool
 		failOnMissingOperation bool
@@ -97,6 +101,7 @@ func newGenmockBuildCmd() *cobra.Command {
 				FailOnMissingOperation: failOnMissingOperation,
 				FailOnMissingBodyFile:  failOnMissingBodyFile,
 				NoAutoFallback:         noAutoFallback,
+				Tags:                   splitTrim(tagsStr),
 			})
 			if result != nil {
 				printGenmockDiagnostics(cmd.ErrOrStderr(), result.Diagnostics)
@@ -115,6 +120,7 @@ func newGenmockBuildCmd() *cobra.Command {
 	cmd.Flags().StringVar(&casesPath, "cases", "mock-cases.yaml", "mock case YAML のパス")
 	cmd.Flags().StringVar(&responsesRoot, "responses-root", "mock-responses", "response JSON のルートディレクトリ")
 	cmd.Flags().StringVar(&outDir, "out", "wiremock-out", "WireMock 出力ディレクトリ")
+	cmd.Flags().StringVar(&tagsStr, "tags", "", "生成対象タグ (カンマ区切り): 例 users,orders")
 	cmd.Flags().BoolVar(&clean, "clean", false, "生成前に WireMock 出力ディレクトリを掃除する")
 	cmd.Flags().BoolVar(&strict, "strict", false, "警告をエラーとして扱う")
 	cmd.Flags().BoolVar(&failOnMissingOperation, "fail-on-missing-operation", false, "case の operationId が OpenAPI に存在しない場合エラーにする")
@@ -130,6 +136,7 @@ func newGenmockValidateCmd() *cobra.Command {
 		openAPIPath            string
 		casesPath              string
 		responsesRoot          string
+		tagsStr                string
 		strict                 bool
 		failOnMissingOperation bool
 		failOnMissingBodyFile  bool
@@ -146,6 +153,7 @@ func newGenmockValidateCmd() *cobra.Command {
 				Strict:                 strict,
 				FailOnMissingOperation: failOnMissingOperation,
 				FailOnMissingBodyFile:  failOnMissingBodyFile,
+				Tags:                   splitTrim(tagsStr),
 			})
 			if result != nil {
 				printGenmockDiagnostics(cmd.ErrOrStderr(), result.Diagnostics)
@@ -163,6 +171,7 @@ func newGenmockValidateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&openAPIPath, "openapi", "", "OpenAPI ファイルパス (YAML/JSON)")
 	cmd.Flags().StringVar(&casesPath, "cases", "mock-cases.yaml", "mock case YAML のパス")
 	cmd.Flags().StringVar(&responsesRoot, "responses-root", "mock-responses", "response JSON のルートディレクトリ")
+	cmd.Flags().StringVar(&tagsStr, "tags", "", "検証対象タグ (カンマ区切り): 例 users,orders")
 	cmd.Flags().BoolVar(&strict, "strict", false, "警告をエラーとして扱う")
 	cmd.Flags().BoolVar(&failOnMissingOperation, "fail-on-missing-operation", false, "case の operationId が OpenAPI に存在しない場合エラーにする")
 	cmd.Flags().BoolVar(&failOnMissingBodyFile, "fail-on-missing-body-file", false, "response bodyFile の実ファイルが存在しない場合エラーにする")
