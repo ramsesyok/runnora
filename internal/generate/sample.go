@@ -132,6 +132,11 @@ func schemaToSample(schema *base.Schema, depth int) interface{} {
 			return v
 		}
 	}
+	if len(schema.Enum) > 0 {
+		if v := yamlNodeToInterface(schema.Enum[0]); v != nil {
+			return v
+		}
+	}
 
 	// 型ベース生成
 	t := schemaType(schema)
@@ -152,6 +157,9 @@ func schemaToSample(schema *base.Schema, depth int) interface{} {
 	case "boolean":
 		return false
 	case "array":
+		if v := arrayItemSample(schema); v != nil {
+			return []interface{}{v}
+		}
 		return []interface{}{}
 	case "object":
 		return objectSample(schema, depth)

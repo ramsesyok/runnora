@@ -387,6 +387,22 @@ case JSON の `requestBody` に、送信する JSON を書きます。
 
 OpenAPI の schema から作られる値は、あくまで雛形です。実際の API サーバが必須にしている値、認証、事前データ、採番ルールに合わせて case JSON を調整します。
 
+`multipart/form-data` の request body を持つ API では、case JSON の `requestBody` に form field ごとの値が入ります。`type: string`, `format: binary` の property は file part として扱われるため、生成直後は `TODO: path/to/file` を実際にアップロードするファイルパスへ変更します。
+
+```json
+{
+  "pathParams": {
+    "petId": 1
+  },
+  "queryParams": {},
+  "headers": {},
+  "requestBody": {
+    "additionalMetadata": "sample image",
+    "file": "./testdata/doggie.png"
+  }
+}
+```
+
 ## suite runbook を実行する
 
 生成された suite runbook は、実行の入口になるファイルです。
@@ -472,7 +488,7 @@ cases/generated/pet/get_findPetsByStatus/
 }
 ```
 
-query parameter を使う API では、case JSON に値を書いたあと、template runbook 側の request path にもその値を渡します。
+query parameter を使う API では、case JSON に値を書くと、生成された template runbook 側の request path がその値を参照します。
 
 `runbooks/generated/pet/get_findPetsByStatus.template.yml` の該当箇所を確認します。
 
@@ -484,17 +500,6 @@ runners:
 steps:
   call_api:
     req:
-      /pet/findByStatus:
-        get:
-          headers: "{{ vars.case.headers }}"
-```
-
-`status` を query string として渡すには、次のように path を調整します。
-
-```yaml
-steps:
-  call_api:
-    req:
       /pet/findByStatus?status={{ vars.case.queryParams.status }}:
         get:
           headers: "{{ vars.case.headers }}"
@@ -502,7 +507,7 @@ steps:
 
 `endpoint` の値は `${RUNNORA_BASE_URL}` という shell 変数展開形式で書きます。`RUNNORA_BASE_URL` 環境変数が読み込まれます。
 
-この変更を加えると、`available.json`、`pending.json`、`sold.json` のように case JSON だけを増やして、同じ template runbook で複数の検索条件を実行できます。
+`available.json`、`pending.json`、`sold.json` のように case JSON だけを増やして、同じ template runbook で複数の検索条件を実行できます。
 
 `sold.json`:
 

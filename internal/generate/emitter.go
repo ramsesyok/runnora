@@ -90,7 +90,14 @@ func buildTemplateContent(op *OperationInfo, runnerName string) string {
 	// request body は POST/PUT/PATCH のみ
 	if hasRequestBody(op.Method) {
 		sb.WriteString("          body:\n")
-		sb.WriteString("            application/json: \"{{ vars.case.requestBody }}\"\n")
+		if op.RequestBodyContentType == "multipart/form-data" {
+			sb.WriteString("            multipart/form-data:\n")
+			for _, field := range op.MultipartFields {
+				sb.WriteString("              " + field.Name + ": \"{{ vars.case.requestBody." + field.Name + " }}\"\n")
+			}
+		} else {
+			sb.WriteString("            application/json: \"{{ vars.case.requestBody }}\"\n")
+		}
 	}
 
 	sb.WriteString("    test: |\n")
@@ -170,8 +177,8 @@ func buildCaseData(op *OperationInfo) caseData {
 	return caseData{
 		Name:        "default",
 		Description: desc,
-		PathParams:  map[string]interface{}{},
-		QueryParams: map[string]interface{}{},
+		PathParams:  buildParams(op.PathParams),
+		QueryParams: buildQueryParams(op.QueryParams),
 		Headers:     map[string]interface{}{},
 		RequestBody: reqBody,
 		Expect: caseExpect{
@@ -181,6 +188,18 @@ func buildCaseData(op *OperationInfo) caseData {
 			IgnorePaths: []interface{}{},
 		},
 	}
+}
+
+func buildParams(params []ParameterInfo) map[string]interface{} {
+	result := map[string]interface{}{}
+	for _, p := range params {
+		result[p.Name] = p.Sample
+	}
+	return result
+}
+
+func buildQueryParams(params []ParameterInfo) map[string]interface{} {
+	return buildParams(params)
 }
 
 // EmitSuite は suite runbook を生成して書き出す。
