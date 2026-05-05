@@ -42,6 +42,9 @@ func TestGenmockCmd_DefaultFlags(t *testing.T) {
 	if flag := initCmd.Flags().Lookup("responses-root"); flag == nil || flag.DefValue != "mock-responses" {
 		t.Fatalf("genmock init --responses-root default = %v, want mock-responses", flagDefault(flag))
 	}
+	if flag := initCmd.Flags().Lookup("tags"); flag == nil || flag.DefValue != "" {
+		t.Fatalf("genmock init --tags default = %v, want empty", flagDefault(flag))
+	}
 
 	buildCmd, _, _ := root.Find([]string{"genmock", "build"})
 	if flag := buildCmd.Flags().Lookup("cases"); flag == nil || flag.DefValue != "mock-cases.yaml" {
@@ -53,6 +56,9 @@ func TestGenmockCmd_DefaultFlags(t *testing.T) {
 	if flag := buildCmd.Flags().Lookup("out"); flag == nil || flag.DefValue != "wiremock-out" {
 		t.Fatalf("genmock build --out default = %v, want wiremock-out", flagDefault(flag))
 	}
+	if flag := buildCmd.Flags().Lookup("tags"); flag == nil || flag.DefValue != "" {
+		t.Fatalf("genmock build --tags default = %v, want empty", flagDefault(flag))
+	}
 	for _, name := range []string{"clean", "strict", "fail-on-missing-operation", "fail-on-missing-body-file", "no-auto-fallback"} {
 		if flag := buildCmd.Flags().Lookup(name); flag == nil {
 			t.Fatalf("genmock build --%s flag not found", name)
@@ -60,6 +66,9 @@ func TestGenmockCmd_DefaultFlags(t *testing.T) {
 	}
 
 	validateCmd, _, _ := root.Find([]string{"genmock", "validate"})
+	if flag := validateCmd.Flags().Lookup("tags"); flag == nil || flag.DefValue != "" {
+		t.Fatalf("genmock validate --tags default = %v, want empty", flagDefault(flag))
+	}
 	for _, name := range []string{"strict", "fail-on-missing-operation", "fail-on-missing-body-file"} {
 		if flag := validateCmd.Flags().Lookup(name); flag == nil {
 			t.Fatalf("genmock validate --%s flag not found", name)
@@ -80,6 +89,46 @@ func TestGenmockCmd_OpenAPIRequired(t *testing.T) {
 		if !strings.Contains(err.Error(), "required flag(s) \"openapi\" not set") {
 			t.Fatalf("%v: unexpected error: %v", args, err)
 		}
+	}
+}
+
+func TestGenmockInit_TagsFilter(t *testing.T) {
+	dir := t.TempDir()
+	openAPIPath := filepath.Join(dir, "openapi.yaml")
+	outCasesPath := filepath.Join(dir, "mock-cases.yaml")
+	responsesRoot := filepath.Join(dir, "mock-responses")
+	writeFile(t, openAPIPath, genmockTaggedOpenAPI)
+
+	out, errOut, err := executeRoot(t,
+		"genmock", "init",
+		"--openapi", openAPIPath,
+		"--out-cases", outCasesPath,
+		"--responses-root", responsesRoot,
+		"--tags", "pet",
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
+	}
+	if !strings.Contains(out, "generated 1 cases, 1 response stubs") {
+		t.Fatalf("init output = %q, want generated counts for pet only", out)
+	}
+
+	casesBytes, err := os.ReadFile(outCasesPath)
+	if err != nil {
+		t.Fatalf("read case YAML: %v", err)
+	}
+	cases := string(casesBytes)
+	if !strings.Contains(cases, "operationId: getPet") {
+		t.Fatalf("case YAML = %q, want getPet", cases)
+	}
+	if strings.Contains(cases, "operationId: getStore") {
+		t.Fatalf("case YAML = %q, did not expect getStore", cases)
+	}
+	if _, err := os.Stat(filepath.Join(responsesRoot, "getPet", "getPet_default.json")); err != nil {
+		t.Fatalf("pet response stub was not written: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(responsesRoot, "getStore", "getStore_default.json")); !os.IsNotExist(err) {
+		t.Fatalf("store response stub exists or stat failed unexpectedly: %v", err)
 	}
 }
 
@@ -138,6 +187,44 @@ func TestGenmockBuild_IntegrationWritesWireMockFiles(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(outDir, "__files", "getWidget", "getWidget_default.json")); err != nil {
 		t.Fatalf("body file was not copied: %v", err)
+	}
+}
+
+func TestGenmockBuild_TagsFilterLimitsFallbacks(t *testing.T) {
+	dir := t.TempDir()
+	openAPIPath := filepath.Join(dir, "openapi.yaml")
+	casesPath := filepath.Join(dir, "mock-cases.yaml")
+	responsesRoot := filepath.Join(dir, "mock-responses")
+	outDir := filepath.Join(dir, "wiremock-out")
+	writeFile(t, openAPIPath, genmockTaggedOpenAPI)
+	writeFile(t, casesPath, genmockTaggedPetCases)
+	writeFile(t, filepath.Join(responsesRoot, "getPet", "getPet_default.json"), `{"id":"p1"}`)
+
+	out, errOut, err := executeRoot(t,
+		"genmock", "build",
+		"--openapi", openAPIPath,
+		"--cases", casesPath,
+		"--responses-root", responsesRoot,
+		"--out", outDir,
+		"--tags", "pet",
+		"--fail-on-missing-operation",
+		"--fail-on-missing-body-file",
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v\nstderr: %s", err, errOut)
+	}
+	if !strings.Contains(out, "generated 2 mappings, 1 fallbacks") {
+		t.Fatalf("build output = %q, want pet mapping plus pet fallback", out)
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "mappings", "getPet__getPet_default.json")); err != nil {
+		t.Fatalf("pet mapping was not written: %v", err)
+	}
+	matches, err := filepath.Glob(filepath.Join(outDir, "mappings", "*getStore*"))
+	if err != nil {
+		t.Fatalf("glob store mappings: %v", err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("store mappings were written despite --tags pet: %v", matches)
 	}
 }
 
@@ -248,6 +335,55 @@ paths:
                     type: string
 `
 
+const genmockTaggedOpenAPI = `openapi: 3.0.3
+info:
+  title: Tagged API
+  version: 1.0.0
+paths:
+  /pets/{id}:
+    get:
+      tags:
+        - pet
+      operationId: getPet
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+  /stores/{id}:
+    get:
+      tags:
+        - store
+      operationId: getStore
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+`
+
 const genmockCases = `version: 1
 cases:
   - id: getWidget_default
@@ -260,4 +396,18 @@ cases:
     response:
       status: 200
       bodyFile: getWidget/getWidget_default.json
+`
+
+const genmockTaggedPetCases = `version: 1
+cases:
+  - id: getPet_default
+    operationId: getPet
+    priority: 10
+    request:
+      pathParams:
+        id:
+          equalTo: "p1"
+    response:
+      status: 200
+      bodyFile: getPet/getPet_default.json
 `

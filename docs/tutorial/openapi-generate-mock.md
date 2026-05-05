@@ -113,6 +113,7 @@ runnora genmock init \
   --openapi docs/tutorial/openapi.yaml \
   --out-cases docs/tutorial/mock-cases.yaml \
   --responses-root docs/tutorial/mock-responses \
+  --tags pet \
   --force
 ```
 
@@ -125,7 +126,9 @@ generated <n> cases, <n> response stubs
 
 `mock-cases.yaml` には OpenAPI の `operationId` ごとに case の雛形が作られます。`mock-responses/` には、それぞれの case が参照する JSON stub が作られます。
 
-> **Note**: `runnora genmock init` は `--tags` フィルタがないため、OpenAPI の全 operation が対象になります。`runnora generate --tags pet` が `pet` tag だけを生成するのと違い、`store`、`user` tag の case も生成されます。不要な case は削除するか、`runnora genmock validate` の警告として残しておいて構いません。
+`--tags pet` を指定すると、`pet` tag の operation だけが対象になります。複数 tag を対象にしたい場合は `--tags pet,store` のようにカンマ区切りで指定します。
+
+`runnora generate --skip-deprecated` と違い、`genmock init` は deprecated operation も生成対象に含めます。この Petstore では `findPetsByTags` も mock case と response stub に含まれるため、不要であれば `mock-cases.yaml` から削除します。
 
 生成された `mock-cases.yaml` には、リクエストマッチャーのプレースホルダーとして `equalTo: "TODO"` が入っています。例えば `getPetById` の case は次のようになります。
 
@@ -326,6 +329,7 @@ runnora genmock validate \
   --openapi docs/tutorial/openapi.yaml \
   --cases docs/tutorial/mock-cases.yaml \
   --responses-root docs/tutorial/mock-responses \
+  --tags pet \
   --fail-on-missing-operation \
   --fail-on-missing-body-file
 ```
@@ -336,7 +340,7 @@ runnora genmock validate \
 OK: no issues found
 ```
 
-`genmock init` がリクエストマッチャーなしの case（`getInventory_default`、`logoutUser_default` など、パラメータを持たない GET 系エンドポイント）を生成した場合は、次のような警告が出ます。
+`--tags` を指定せずに `genmock init` を実行し、リクエストマッチャーなしの case（`getInventory_default`、`logoutUser_default` など、パラメータを持たない GET 系エンドポイント）が生成された場合は、次のような警告が出ます。
 
 ```text
 warning: cases[N]: case "getInventory_default" has no request matchers and is not a fallback
@@ -363,6 +367,7 @@ runnora genmock build \
   --cases docs/tutorial/mock-cases.yaml \
   --responses-root docs/tutorial/mock-responses \
   --out docs/tutorial/wiremock-out \
+  --tags pet \
   --clean \
   --fail-on-missing-operation \
   --fail-on-missing-body-file
@@ -397,6 +402,7 @@ runnora genmock build \
   --cases docs/tutorial/mock-cases.yaml \
   --responses-root docs/tutorial/mock-responses \
   --out docs/tutorial/wiremock-out \
+  --tags pet \
   --clean \
   --no-auto-fallback
 ```
@@ -459,10 +465,10 @@ OpenAPI が更新されたときは、テスト資産とモック資産を同じ
 ```text
 1. OpenAPI を更新する
 2. runnora generate --clean --force で generated/ を作り直す
-3. runnora genmock init --force で mock-cases.yaml と mock-responses/ の雛形を更新する
+3. runnora genmock init --tags pet --force で mock-cases.yaml と mock-responses/ の雛形を更新する
 4. 手で育てた case JSON、mock-cases.yaml、mock-responses/ を差分確認して戻す
-5. runnora genmock validate で整合性を確認する
-6. runnora genmock build --clean で WireMock 用ファイルを作り直す
+5. runnora genmock validate --tags pet で整合性を確認する
+6. runnora genmock build --tags pet --clean で WireMock 用ファイルを作り直す
 7. WireMock に対して runnora run を実行する
 ```
 
