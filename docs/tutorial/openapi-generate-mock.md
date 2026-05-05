@@ -9,20 +9,20 @@ docs/tutorial/openapi.yaml
   |
   +-- runnora generate
   |     |
-  |     +-- runbooks/generated/
-  |     +-- cases/generated/
+  |     +-- practice/runbooks/generated/
+  |     +-- practice/cases/generated/
   |
   +-- runnora genmock
         |
-        +-- mock-cases.yaml
-        +-- mock-responses/
-        +-- wiremock-out/
+        +-- practice/mock-cases.yaml
+        +-- practice/mock-responses/
+        +-- practice/wiremock-out/
               |
               +-- mappings/
               +-- __files/
 ```
 
-`cases/generated/` の case JSON は、runnora が送るリクエストと期待値を表します。`mock-cases.yaml` と `mock-responses/` は、WireMock がどのリクエストにどのレスポンスを返すかを表します。
+`practice/cases/generated/` の case JSON は、runnora が送るリクエストと期待値を表します。`practice/mock-cases.yaml` と `practice/mock-responses/` は、WireMock がどのリクエストにどのレスポンスを返すかを表します。
 
 この 2 つを別々に考えすぎると、runnora の期待レスポンス JSON と WireMock のレスポンス JSON を二重管理しがちです。このチュートリアルでは、レスポンス body の実体は `mock-responses/` に寄せ、runnora 側の case JSON には検証したい一部だけを書く運用にします。
 
@@ -54,11 +54,10 @@ curl -L -o docs/tools/wiremock-standalone-3.13.2.jar \
 このチュートリアルでは、次のファイルとディレクトリを作ります。
 
 ```text
-runbooks/generated/pet/
-cases/generated/pet/
-
-docs/tutorial/
-├─ openapi.yaml
+practice/
+├─ runbooks/generated/pet/
+├─ cases/generated/pet/
+├─ config.yaml
 ├─ mock-cases.yaml
 ├─ mock-responses/
 └─ wiremock-out/
@@ -70,20 +69,23 @@ docs/tutorial/
 
 | パス | 役割 |
 |---|---|
-| `runbooks/generated/pet/` | runnora が API を呼ぶ template / suite runbook |
-| `cases/generated/pet/` | runnora が送るリクエスト値と期待値 |
-| `docs/tutorial/mock-cases.yaml` | WireMock の返し分け条件 |
-| `docs/tutorial/mock-responses/` | WireMock が返すレスポンス body |
-| `docs/tutorial/wiremock-out/` | WireMock が読み込む生成済みファイル |
+| `practice/runbooks/generated/pet/` | runnora が API を呼ぶ template / suite runbook |
+| `practice/cases/generated/pet/` | runnora が送るリクエスト値と期待値 |
+| `practice/config.yaml` | runnora run 用の設定ファイル |
+| `practice/mock-cases.yaml` | WireMock の返し分け条件 |
+| `practice/mock-responses/` | WireMock が返すレスポンス body |
+| `practice/wiremock-out/` | WireMock が読み込む生成済みファイル |
 
 ## 1. runnora のテスト資産を生成する
 
 まず `runnora generate` で、Petstore の `pet` tag からテスト資産を生成します。
 
 ```bash
+mkdir -p practice
+
 runnora generate \
   --openapi docs/tutorial/openapi.yaml \
-  --out . \
+  --out practice \
   --tags pet \
   --skip-deprecated \
   --clean \
@@ -93,13 +95,13 @@ runnora generate \
 生成後、代表的なファイルは次のようになります。
 
 ```text
-runbooks/generated/pet/get_findPetsByStatus.template.yml
-runbooks/generated/pet/get_findPetsByStatus.suite.yml
-cases/generated/pet/get_findPetsByStatus/default.json
+practice/runbooks/generated/pet/get_findPetsByStatus.template.yml
+practice/runbooks/generated/pet/get_findPetsByStatus.suite.yml
+practice/cases/generated/pet/get_findPetsByStatus/default.json
 
-runbooks/generated/pet/get_getPetById.template.yml
-runbooks/generated/pet/get_getPetById.suite.yml
-cases/generated/pet/get_getPetById/default.json
+practice/runbooks/generated/pet/get_getPetById.template.yml
+practice/runbooks/generated/pet/get_getPetById.suite.yml
+practice/cases/generated/pet/get_getPetById/default.json
 ```
 
 `runnora generate` の生成物は再生成前提です。業務テストとして手で育てる場合は `runbooks/evidence/` などへコピーしますが、このチュートリアルでは `generated/` のまま WireMock に接続して流れを確認します。
@@ -111,8 +113,8 @@ cases/generated/pet/get_getPetById/default.json
 ```bash
 runnora genmock init \
   --openapi docs/tutorial/openapi.yaml \
-  --out-cases docs/tutorial/mock-cases.yaml \
-  --responses-root docs/tutorial/mock-responses \
+  --out-cases practice/mock-cases.yaml \
+  --responses-root practice/mock-responses \
   --tags pet \
   --force
 ```
@@ -120,7 +122,7 @@ runnora genmock init \
 成功すると、次のような出力になります。
 
 ```text
-wrote case YAML -> docs/tutorial/mock-cases.yaml
+wrote case YAML -> practice/mock-cases.yaml
 generated <n> cases, <n> response stubs
 ```
 
@@ -141,7 +143,7 @@ generated <n> cases, <n> response stubs
         equalTo: "TODO"
   response:
     status: 200
-    bodyFile: pet/getPetById/default.json
+    bodyFile: getPetById/getPetById_default.json
 ```
 
 `equalTo: "TODO"` のままでは `runnora genmock build` を実行しても WireMock が正しくリクエストを照合できません。次のステップで、実際にテストしたいリクエスト値に書き換えます。
@@ -150,7 +152,7 @@ generated <n> cases, <n> response stubs
 
 最初は `GET /pet/{petId}` のテストを、WireMock に対して通します。
 
-`cases/generated/pet/get_getPetById/default.json` を、次のように編集します。
+`practice/cases/generated/pet/get_getPetById/default.json` を、次のように編集します。
 
 ```json
 {
@@ -181,11 +183,13 @@ generated <n> cases, <n> response stubs
 |---|---|
 | `pathParams.petId` | runnora が `/pet/100` を呼ぶ |
 | `expect.status` | HTTP 200 を期待する |
-| `expect.body` | レスポンス body に含まれてほしい値 |
+| `expect.body` | レスポンス body に含まれてほしい値の雛形 |
+
+生成直後の template runbook が自動で検証するのは `expect.status` です。`expect.body` は WireMock レスポンスと期待値をそろえるための材料として使います。レスポンス body まで runnora で検証したい場合は、template runbook の `test` にフィールドごとの検証式を追加します。
 
 ## 4. WireMock の返し分け条件を書く
 
-次に、runnora が送る `/pet/100` に WireMock が一致できるよう、`docs/tutorial/mock-cases.yaml` の `getPetById` case を編集します。
+次に、runnora が送る `/pet/100` に WireMock が一致できるよう、`practice/mock-cases.yaml` の `getPetById` case を編集します。
 
 ```yaml
 - id: getPetById_100
@@ -205,12 +209,12 @@ generated <n> cases, <n> response stubs
 `bodyFile` は `--responses-root` からの相対パスです。Windows でもここは `/` 区切りの相対パスとして書きます。
 
 ```text
-docs/tutorial/mock-responses/getPetById/getPetById_100.json
+practice/mock-responses/getPetById/getPetById_100.json
 ```
 
 ## 5. WireMock のレスポンス JSON を書く
 
-`docs/tutorial/mock-responses/getPetById/getPetById_100.json` を、runnora の `expect.body` と矛盾しない内容にします。
+`practice/mock-responses/getPetById/getPetById_100.json` を、runnora の `expect.body` と矛盾しない内容にします。
 
 ```json
 {
@@ -233,7 +237,7 @@ docs/tutorial/mock-responses/getPetById/getPetById_100.json
 }
 ```
 
-この JSON がレスポンス body の正本です。runnora の case JSON には、検証したい一部だけを `expect.body` に書きます。
+この JSON がレスポンス body の正本です。runnora の case JSON には、期待値として残したい一部だけを `expect.body` に書きます。
 
 ```text
 mock-responses/getPetById/getPetById_100.json
@@ -247,13 +251,13 @@ runnora expect.body
 API テスト
 ```
 
-完全一致で検証したい場合は、runnora の `expect.body` に同じ JSON を書く運用もできます。ただしレスポンスが大きくなるほど二重管理になりやすいため、最初は `bodyMode: subset` で重要な値だけを見る方が扱いやすいです。
+完全一致の期待値として残したい場合は、runnora の `expect.body` に同じ JSON を書く運用もできます。ただしレスポンスが大きくなるほど二重管理になりやすいため、最初は重要な値だけを書く方が扱いやすいです。
 
 ## 6. query parameter のケースをそろえる
 
 `findPetsByStatus` では、runnora の case JSON と WireMock の matcher の両方に `status=available` を書きます。
 
-`cases/generated/pet/get_findPetsByStatus/default.json`:
+`practice/cases/generated/pet/get_findPetsByStatus/default.json`:
 
 ```json
 {
@@ -278,7 +282,7 @@ API テスト
 }
 ```
 
-`docs/tutorial/mock-cases.yaml`:
+`practice/mock-cases.yaml`:
 
 ```yaml
 - id: findPetsByStatus_available
@@ -293,7 +297,7 @@ API テスト
     bodyFile: findPetsByStatus/findPetsByStatus_available.json
 ```
 
-`docs/tutorial/mock-responses/findPetsByStatus/findPetsByStatus_available.json`:
+`practice/mock-responses/findPetsByStatus/findPetsByStatus_available.json`:
 
 ```json
 [
@@ -305,9 +309,9 @@ API テスト
 ]
 ```
 
-query parameter を WireMock に送るには、runnora の template runbook 側で query string を組み立てている必要があります。
+query parameter を WireMock に送るため、`runnora generate` は OpenAPI の query parameter を template runbook の request path に反映します。
 
-`runbooks/generated/pet/get_findPetsByStatus.template.yml` の request path が次のようになっているか確認します。
+`practice/runbooks/generated/pet/get_findPetsByStatus.template.yml` の request path が次のようになっているか確認します。
 
 ```yaml
 steps:
@@ -318,7 +322,7 @@ steps:
           headers: "{{ vars.case.headers }}"
 ```
 
-生成直後の template runbook が query string を含んでいない場合は、このように調整します。
+case JSON の `queryParams.status` を変えると、同じ template runbook のまま WireMock に送る query string も変わります。古い生成物に query string が含まれていない場合は、再生成するか、この形へ調整します。
 
 ## 7. OpenAPI と mock case の整合性を検証する
 
@@ -327,8 +331,8 @@ WireMock 用ファイルを生成する前に、`runnora genmock validate` で O
 ```bash
 runnora genmock validate \
   --openapi docs/tutorial/openapi.yaml \
-  --cases docs/tutorial/mock-cases.yaml \
-  --responses-root docs/tutorial/mock-responses \
+  --cases practice/mock-cases.yaml \
+  --responses-root practice/mock-responses \
   --tags pet \
   --fail-on-missing-operation \
   --fail-on-missing-body-file
@@ -364,9 +368,9 @@ warning: cases[N]: case "getInventory_default" has no request matchers and is no
 ```bash
 runnora genmock build \
   --openapi docs/tutorial/openapi.yaml \
-  --cases docs/tutorial/mock-cases.yaml \
-  --responses-root docs/tutorial/mock-responses \
-  --out docs/tutorial/wiremock-out \
+  --cases practice/mock-cases.yaml \
+  --responses-root practice/mock-responses \
+  --out practice/wiremock-out \
   --tags pet \
   --clean \
   --fail-on-missing-operation \
@@ -376,14 +380,14 @@ runnora genmock build \
 成功すると、次のような出力になります。
 
 ```text
-build complete -> docs/tutorial/wiremock-out
+build complete -> practice/wiremock-out
 generated <n> mappings, <n> fallbacks
 ```
 
 生成後の構成は次のようになります。
 
 ```text
-docs/tutorial/wiremock-out/
+practice/wiremock-out/
 ├─ mappings/
 │  ├─ getPetById__getPetById_100.json
 │  ├─ findPetsByStatus__findPetsByStatus_available.json
@@ -399,9 +403,9 @@ docs/tutorial/wiremock-out/
 ```bash
 runnora genmock build \
   --openapi docs/tutorial/openapi.yaml \
-  --cases docs/tutorial/mock-cases.yaml \
-  --responses-root docs/tutorial/mock-responses \
-  --out docs/tutorial/wiremock-out \
+  --cases practice/mock-cases.yaml \
+  --responses-root practice/mock-responses \
+  --out practice/wiremock-out \
   --tags pet \
   --clean \
   --no-auto-fallback
@@ -409,11 +413,11 @@ runnora genmock build \
 
 ## 9. WireMock を起動する
 
-WireMock standalone を `docs/tutorial/wiremock-out` を root directory として起動します。
+WireMock standalone を `practice/wiremock-out` を root directory として起動します。
 
 ```bash
 java -jar docs/tools/wiremock-standalone-3.13.2.jar \
-  --root-dir docs/tutorial/wiremock-out \
+  --root-dir practice/wiremock-out \
   --port 8080
 ```
 
@@ -423,30 +427,30 @@ java -jar docs/tools/wiremock-standalone-3.13.2.jar \
 
 runnora の接続先を WireMock に向けます。
 
-`runnora run` はデフォルトで `./config.yaml` を読み込みます。まだ設定ファイルがない場合は、先にデフォルト設定を作成します。このチュートリアルでは SQL フックを使わないため、`oracle.dsn` は空のままで構いません。
+`runnora run` はデフォルトで `./config.yaml` を読み込みます。このチュートリアルではリポジトリ直下ではなく `practice/config.yaml` を使います。SQL フックを使わないため、`oracle.dsn` は空のままで構いません。
 
 ```bash
-runnora init
+runnora init --out practice/config.yaml --force
 ```
 
 PowerShell:
 
 ```powershell
 $env:RUNNORA_BASE_URL = "http://localhost:8080"
-runnora run runbooks/generated/pet/get_getPetById.suite.yml
+runnora run --config practice/config.yaml practice/runbooks/generated/pet/get_getPetById.suite.yml
 ```
 
 Bash:
 
 ```bash
 export RUNNORA_BASE_URL="http://localhost:8080"
-runnora run runbooks/generated/pet/get_getPetById.suite.yml
+runnora run --config practice/config.yaml practice/runbooks/generated/pet/get_getPetById.suite.yml
 ```
 
 `findPetsByStatus` も確認します。
 
 ```bash
-runnora run runbooks/generated/pet/get_findPetsByStatus.suite.yml
+runnora run --config practice/config.yaml practice/runbooks/generated/pet/get_findPetsByStatus.suite.yml
 ```
 
 成功したら、次の対応が取れています。
@@ -456,7 +460,7 @@ runnora run runbooks/generated/pet/get_findPetsByStatus.suite.yml
 | `pathParams.petId: 100` | `request.pathParams.petId.equalTo: "100"` |
 | `queryParams.status: "available"` | `request.query.status.equalTo: "available"` |
 | `expect.status: 200` | `response.status: 200` |
-| `expect.body` | `mock-responses/` の JSON |
+| `expect.body` | `mock-responses/` の JSON とそろえる期待値の雛形 |
 
 ## 運用の目安
 
@@ -465,7 +469,7 @@ OpenAPI が更新されたときは、テスト資産とモック資産を同じ
 ```text
 1. OpenAPI を更新する
 2. runnora generate --clean --force で generated/ を作り直す
-3. runnora genmock init --tags pet --force で mock-cases.yaml と mock-responses/ の雛形を更新する
+3. runnora genmock init --tags pet --force で practice/mock-cases.yaml と practice/mock-responses/ の雛形を更新する
 4. 手で育てた case JSON、mock-cases.yaml、mock-responses/ を差分確認して戻す
 5. runnora genmock validate --tags pet で整合性を確認する
 6. runnora genmock build --tags pet --clean で WireMock 用ファイルを作り直す
@@ -484,8 +488,8 @@ OpenAPI が更新されたときは、テスト資産とモック資産を同じ
 | `operationId` が見つからない | `mock-cases.yaml` の `operationId` が OpenAPI と一致しているか |
 | `bodyFile` が見つからない | `--responses-root` 配下に `bodyFile` の JSON が存在するか |
 | WireMock が fallback を返す | runnora の request と `mock-cases.yaml` の matcher が一致しているか |
-| query parameter が一致しない | template runbook の request path に query string を渡しているか |
-| runnora の body 検証が失敗する | `mock-responses/` の JSON と `expect.body` が矛盾していないか |
+| query parameter が一致しない | case JSON の `queryParams` と `mock-cases.yaml` の `request.query` が同じ値か、template runbook の request path が `vars.case.queryParams.<name>` を参照しているか |
+| body 期待値とモックレスポンスがずれる | `mock-responses/` の JSON と `expect.body` が矛盾していないか |
 
 ## まとめ
 
@@ -493,4 +497,4 @@ OpenAPI が更新されたときは、テスト資産とモック資産を同じ
 
 両方を組み合わせると、まだ実 API が安定していない段階でも、OpenAPI に沿ったモックサーバに対して runnora のテストを育てられます。
 
-レスポンス JSON の正本を `mock-responses/` に寄せ、runnora の `expect.body` には確認したい一部だけを書くと、WireMock レスポンスと API テスト期待値の二重管理を小さくできます。
+レスポンス JSON の正本を `mock-responses/` に寄せ、runnora の `expect.body` には確認したい一部だけを書くと、WireMock レスポンスと API テスト期待値の二重管理を小さくできます。生成直後の runbook では body は自動検証されないため、body まで検証したい場合は template runbook の `test` に必要な検証式を追加します。
