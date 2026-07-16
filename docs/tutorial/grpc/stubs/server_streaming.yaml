@@ -1,0 +1,13 @@
+service: UpdateService
+method: ListUpdates
+input:
+  equals:
+    topic: releases
+output:
+  stream:
+    - sequence: 1
+      message: build started
+    - sequence: 2
+      message: tests passed
+    - sequence: 3
+      message: release ready

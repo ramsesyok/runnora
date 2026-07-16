@@ -1,0 +1,18 @@
+desc: GripMock で Unary RPC をテストする
+runners:
+  greq:
+    addr: localhost:4770
+    tls: false
+    importPaths:
+      - ../proto
+    protos:
+      - ../proto/unary.proto
+steps:
+  say_hello:
+    greq:
+      tutorial.grpc.unary.v1.Greeter/SayHello:
+        message:
+          name: Alice
+    test: |
+      current.res.status == 0 &&
+      current.res.message.message == "Hello, Alice!"

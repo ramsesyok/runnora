@@ -1,0 +1,16 @@
+service: ScoreRecorder
+method: Summarize
+inputs:
+  - equals:
+      player: Alice
+      points: 10
+  - equals:
+      player: Bob
+      points: 20
+  - equals:
+      player: Carol
+      points: 30
+output:
+  data:
+    count: 3
+    total_points: 60

@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package tutorial.grpc.serverstreaming.v1;
+
+service UpdateService {
+  rpc ListUpdates(UpdateRequest) returns (stream UpdateResponse);
+}
+
+message UpdateRequest {
+  string topic = 1;
+}
+
+message UpdateResponse {
+  int32 sequence = 1;
+  string message = 2;
+}

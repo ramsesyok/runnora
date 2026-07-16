@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package tutorial.grpc.clientstreaming.v1;
+
+service ScoreRecorder {
+  rpc Summarize(stream ScoreRequest) returns (ScoreSummary);
+}
+
+message ScoreRequest {
+  string player = 1;
+  int32 points = 2;
+}
+
+message ScoreSummary {
+  int32 count = 1;
+  int32 total_points = 2;
+}

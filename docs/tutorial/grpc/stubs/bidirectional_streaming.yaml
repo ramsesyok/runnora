@@ -1,0 +1,15 @@
+service: ChatService
+method: Chat
+inputs:
+  - equals:
+      user: Alice
+      message: Hello
+  - equals:
+      user: Alice
+      message: Bye
+output:
+  stream:
+    - user: Bot
+      message: Hello, Alice!
+    - user: Bot
+      message: See you!
