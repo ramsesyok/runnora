@@ -1,0 +1,26 @@
+desc: GripMock で Bidirectional Streaming RPC をテストする
+runners:
+  greq:
+    addr: localhost:4770
+    tls: false
+    importPaths:
+      - ../proto
+    protos:
+      - ../proto/bidirectional_streaming.proto
+steps:
+  chat:
+    greq:
+      tutorial.grpc.bidirectional.v1.ChatService/Chat:
+        messages:
+          - user: Alice
+            message: Hello
+          - receive
+          - user: Alice
+            message: Bye
+          - receive
+          - close
+    test: |
+      current.res.status == 0 &&
+      len(current.res.messages) == 2 &&
+      current.res.messages[0].message == "Hello, Alice!" &&
+      current.res.messages[1].message == "See you!"

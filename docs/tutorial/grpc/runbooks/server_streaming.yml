@@ -1,0 +1,21 @@
+desc: GripMock で Server Streaming RPC をテストする
+runners:
+  greq:
+    addr: localhost:4770
+    tls: false
+    importPaths:
+      - ../proto
+    protos:
+      - ../proto/server_streaming.proto
+steps:
+  list_updates:
+    greq:
+      tutorial.grpc.serverstreaming.v1.UpdateService/ListUpdates:
+        message:
+          topic: releases
+    test: |
+      current.res.status == 0 &&
+      len(current.res.messages) == 3 &&
+      current.res.messages[0].sequence == 1 &&
+      current.res.messages[1].message == "tests passed" &&
+      current.res.messages[2].sequence == 3

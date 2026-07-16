@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package tutorial.grpc.bidirectional.v1;
+
+service ChatService {
+  rpc Chat(stream ChatRequest) returns (stream ChatResponse);
+}
+
+message ChatRequest {
+  string user = 1;
+  string message = 2;
+}
+
+message ChatResponse {
+  string user = 1;
+  string message = 2;
+}

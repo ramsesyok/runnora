@@ -1,0 +1,8 @@
+service: Greeter
+method: SayHello
+input:
+  equals:
+    name: Alice
+output:
+  data:
+    message: Hello, Alice!

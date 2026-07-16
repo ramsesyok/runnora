@@ -1,0 +1,24 @@
+desc: GripMock で Client Streaming RPC をテストする
+runners:
+  greq:
+    addr: localhost:4770
+    tls: false
+    importPaths:
+      - ../proto
+    protos:
+      - ../proto/client_streaming.proto
+steps:
+  summarize_scores:
+    greq:
+      tutorial.grpc.clientstreaming.v1.ScoreRecorder/Summarize:
+        messages:
+          - player: Alice
+            points: 10
+          - player: Bob
+            points: 20
+          - player: Carol
+            points: 30
+    test: |
+      current.res.status == 0 &&
+      current.res.message.count == 3 &&
+      current.res.message.total_points == 60

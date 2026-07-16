@@ -1,0 +1,17 @@
+app:
+  name: runnora-grpc-tutorial
+
+oracle:
+  driver: oracle
+  dsn: ""
+  max_open_conns: 5
+  max_idle_conns: 2
+  conn_max_lifetime_sec: 300
+
+hooks:
+  common:
+    before: []
+    after: []
+
+report:
+  format: text
