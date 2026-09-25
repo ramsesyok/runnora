@@ -1,6 +1,8 @@
 -- Oracle Free DB 初期化スクリプト
 -- FREEPDB1 に testuser ユーザーと USERS テーブルを作成する
 
+WHENEVER SQLERROR EXIT SQL.SQLCODE
+
 ALTER SESSION SET CONTAINER = FREEPDB1;
 
 -- ユーザー作成（既存の場合はスキップ）

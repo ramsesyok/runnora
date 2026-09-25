@@ -1,6 +1,6 @@
 services:
   oracle:
-    image: container-registry.oracle.com/database/free
+    image: ${ORACLE_IMAGE:-container-registry.oracle.com/database/free:latest}
     container_name: oracle-free
     ports:
       - "1521:1521"
@@ -9,7 +9,7 @@ services:
       ORACLE_CHARACTERSET: "AL32UTF8"
     volumes:
       - oracle-data:/opt/oracle/oradata
-      - ./oracle-init:/docker-entrypoint-initdb.d
+      - ./oracle-init:/opt/oracle/scripts/setup:ro
     healthcheck:
       test: ["CMD-SHELL", "/opt/oracle/checkDBStatus.sh"]
       interval: 30s

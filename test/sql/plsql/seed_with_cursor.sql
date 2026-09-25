@@ -23,7 +23,7 @@ BEGIN
   v_users(3).email := 'seed3@example.com';
   v_users(3).age   := 22;
 
-  -- FORALL で一括 INSERT
+  -- WHILE LOOP で各レコードを INSERT
   v_idx := v_users.FIRST;
   WHILE v_idx IS NOT NULL LOOP
     INSERT INTO testuser.users (name, email, age)

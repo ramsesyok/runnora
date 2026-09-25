@@ -110,22 +110,20 @@ docker compose logs -f oracle
 # "DATABASE IS READY TO USE!" が出力されたら完了
 ```
 
-### 3. DB を初期化する
+### 3. DB の初期化を確認する
 
-Oracle コンテナが healthy になった後、`testuser` と `USERS` テーブルを作成します。
+Oracle コンテナの初回起動時に `oracle-init/01_init.sql` が `/opt/oracle/scripts/setup` から実行され、`testuser` と `USERS` テーブルが作成されます。コンテナが healthy になった後、初期化結果を確認します。
 
 ```bash
-docker exec oracle-free sqlplus sys/Oracle123! as sysdba @/tmp/setup.sql
+docker exec -i oracle-free sqlplus -s "/ as sysdba" <<'SQL'
+WHENEVER SQLERROR EXIT FAILURE
+ALTER SESSION SET CONTAINER = FREEPDB1;
+SELECT COUNT(*) FROM testuser.users;
+EXIT
+SQL
 ```
 
-または、docker-compose の `oracle-init/01_init.sql` が自動実行されます（`/docker-entrypoint-initdb.d` 経由）。
-
-> **Note**: Oracle Free の entrypoint initdb は CDB レベルで実行されるため、手動実行が確実です。
->
-> ```bash
-> docker cp oracle-init/01_init.sql oracle-free:/tmp/01_init.sql
-> docker exec oracle-free sqlplus sys/Oracle123! as sysdba @/tmp/01_init.sql
-> ```
+初期化スクリプトは新規DB作成時に実行されます。既存の `oracle-data` ボリュームで再起動した場合は再実行されません。
 
 ### 4. テスト対象サービスを起動する
 
@@ -214,6 +212,8 @@ cd test
          → runbook 実行 (3件存在することを API / DB の両面で確認)
 [after]  config.yaml の common.after (after.sql: 残存レコード数を DBMS_OUTPUT に出力)
 ```
+
+GitHub Actions の `Oracle PL/SQL hooks` ジョブでは Oracle Free と testapi を起動し、上記の事前フックに加えて `--after-sql ./sql/plsql/cleanup_with_exception.sql` を実行します。runbook で 3 件の投入を確認した後、事後フックが削除した結果を Oracle に直接照会して 0 件であることを確認します。続いて、データが 0 件の状態で同じ事後フックを実行し、PL/SQL 例外が終了コード 4 として返ることも確認します。
 
 ### レポートをファイルに出力する
 
