@@ -9,7 +9,7 @@ services:
       ORACLE_CHARACTERSET: "AL32UTF8"
     volumes:
       - oracle-data:/opt/oracle/oradata
-      - ./oracle-init:/opt/oracle/scripts/setup:ro
+      - ./oracle-init:/opt/oracle/scripts/startup:ro
     healthcheck:
       test: ["CMD-SHELL", "/opt/oracle/checkDBStatus.sh"]
       interval: 30s
