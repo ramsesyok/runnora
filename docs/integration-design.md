@@ -133,7 +133,7 @@ runners:
 - 1 ファイルを見ればシナリオの前提が分かる。レビューも移行もファイル単位で済む。
 - `runnora run runbooks/scenarios/*.yml` だけで、固有の SQL も含めて正しく実行される。
 - docgen も同じブロックを読むので、`--before-sql` を二重に指定しなくてよい。
-- 要検証：runn がトップレベルの未知のキーを許容するか。許容しない場合は、runnora が読み込み時にこのブロックを取り除いてから runn に渡す。
+- runn（v1.9.2）はトップレベルの未知のキーを無視するため、このブロックがあっても runbook はそのまま runn に渡せる（確認済み。詳細は [format-v2](design/format-v2.md) の 2 章）。
 
 ### 5.3 モックと契約テストのケース
 
@@ -231,7 +231,7 @@ runners:
 | # | 内容 | 状態 |
 |---|---|---|
 | 1 | すぐ直す：grpc-test の runnora-diff ビルド、oapi2wire の mapping id を安定化、e2e README の古い記述 | 対応済み（各リポジトリの作業ブランチ） |
-| 2 | 新形式を固める：`runnora.yaml`、`runnora:` ブロック、変数展開、`version: 2` | |
+| 2 | 新形式を固める：`runnora.yaml`、`runnora:` ブロック、変数展開、`version: 2` | 詳細設計済み（[format-v2](design/format-v2.md)）。実装は未着手 |
 | 3 | runtime：証跡の自動保存、`diffEps()` の内蔵、ステップ単位の JSON レポート、サマリー HTML | |
 | 4 | e2e を新形式に書き直す（見本と移行の実例） | |
 | 5 | `runnora-migrate` を作り、先行チームへ適用する | |
