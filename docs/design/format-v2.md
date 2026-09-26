@@ -221,12 +221,12 @@ steps:
 ### 5.3 前後処理の実行順
 
 ```text
-[before] 環境の hooks.before → runbook の runnora.before → CLI の --before-sql
+[before] 環境の hooks.before → runbook の runnora.before
          runbook 実行
-[after]  CLI の --after-sql → runbook の runnora.after → 環境の hooks.after
+[after]  runbook の runnora.after → 環境の hooks.after
 ```
 
-いまの「共通 → 固有」の順を保ち、固有の層を 1 段増やしている。`--before-sql` / `--after-sql` はその場限りの追加のために残す。
+いまの「共通 → 固有」の順を保つ。CLI の `--before-sql` / `--after-sql` は**廃止する**（2026-09-26 決定）。前後処理は必ず `runnora.yaml` か runbook の `runnora:` ブロックに書くので、実行した内容と docgen の手順書が常に一致する。その場限りの SQL を足したいときは、ブロックを一時的に書き換えるか、使い捨ての環境を `runnora.yaml` に追加する。
 
 - 各 runbook の前後処理は、`BeforeFunc` / `AfterFunc` に渡されたパスでその runbook のブロックを引いて組み立てる。
 - DB への接続は、**実行対象のどれかに前後処理が 1 つでもあるときだけ**、最初に必要になった時点で開く（いまと同じ考え方）。
@@ -307,7 +307,7 @@ runnora run [--project runnora.yaml] [--env <名前>] [--suite <名前>] [--var 
 | `--suite` | 新規 | 使うスイート。runbook の引数と同時には指定できない |
 | `--var` | 新規 | 変数の上書き |
 | `--config` | **削除** | 指定されたら「runnora.yaml に移行してください（runnora-migrate）」と表示して終了コード 2 |
-| `--before-sql` / `--after-sql` | 維持 | その場限りの追加（→ 5.3） |
+| `--before-sql` / `--after-sql` | **削除** | 指定されたら「前後処理は runbook の runnora: ブロックに書いてください（runnora-migrate で移行できます）」と表示して終了コード 2（→ 5.3） |
 | `--scopes`、`--report-*`、`--trace`、`--fail-fast` | 維持 | `runnora.yaml` の値より CLI の指定を優先する |
 
 - runbook の引数を指定したときは、`runnora:` ブロックの有無にかかわらず指定されたものを実行する。ブロックがない runbook では ID をファイルパスから作る（例：`runbooks/demo/x.yml` → `runbooks/demo/x`）。
@@ -346,6 +346,7 @@ runnora 本体は旧形式を読まない（連携設計の 9 章）。
 
 | 状況 | 動作 |
 |---|---|
+| `--before-sql` / `--after-sql` が指定された | 7.1 のとおり案内を表示して終了コード 2 |
 | `--config` が指定された | 「`--config` は廃止されました。runnora-migrate で runnora.yaml に移行してください」と表示し、終了コード 2 |
 | `runnora.yaml` に `version` がない、または 2 でない | 同様の案内を表示して終了コード 2 |
 | `runnora.yaml` がなく、カレントディレクトリに `config.yaml` がある | 警告だけ表示し、プロジェクトなしとして実行を続ける（runbook だけのチュートリアルを壊さないため） |
@@ -372,7 +373,7 @@ runnora 本体は旧形式を読まない（連携設計の 9 章）。
 2. 変数の優先順位と展開（段階 1〜3）、未定義の検出
 3. プロジェクトの探索（親ディレクトリ、`--project`、なし）
 4. スイートの選択（ブロックなしの除外、ラベル、ID の順序、見つからない ID、重複 ID）
-5. 前後処理の実行順（環境、runbook、CLI の組み合わせ）。いまと同じく、スタブの Executor で Oracle なしに確認する
+5. 前後処理の実行順（環境と runbook の組み合わせ）。いまと同じく、スタブの Executor で Oracle なしに確認する
 6. 期待する結果と終了コード（5.4 の表のすべての行）
 7. `include` された runbook のブロックが無視されること
 8. 旧形式の検出（9 章）
@@ -401,4 +402,4 @@ runnora 本体は旧形式を読まない（連携設計の 9 章）。
 
 1. **`runnora:` ブロックの SQL パスの基準**：**決定（2026-09-26）：プロジェクトルート基準**（3 章のとおり）。runbook の位置を基準にする案は、`../../sql/...` になり runbook を移すと壊れるため採らない。
 2. **`runnora.yaml` の値と OS の環境変数の優先順位**：**決定（2026-09-26）：OS の環境変数を優先**（6.1 のとおり）。CI やスクリプトから環境変数で上書きできる運用に合わせる。意図しない上書きは、上書きされた変数名の表示とレポートへの記録で気づけるようにする。
-3. **`--before-sql` / `--after-sql` を残すか**：その場限りの追加用に残す案。ブロックに一本化して廃止すれば、run と docgen で指定がずれる余地が完全になくなる。
+3. **`--before-sql` / `--after-sql` を残すか**：**決定（2026-09-26）：廃止する**（5.3 のとおり）。前後処理の指定を `runnora.yaml` と `runnora:` ブロックに一本化し、実行した内容と手順書がずれる余地をなくす。runnora-docgen の同名オプションも、入力を新形式に切り替えるとき（実施順 7）に廃止する。

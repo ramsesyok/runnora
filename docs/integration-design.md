@@ -132,7 +132,7 @@ runners:
 
 - 1 ファイルを見ればシナリオの前提が分かる。レビューも移行もファイル単位で済む。
 - `runnora run runbooks/scenarios/*.yml` だけで、固有の SQL も含めて正しく実行される。
-- docgen も同じブロックを読むので、`--before-sql` を二重に指定しなくてよい。
+- docgen も同じブロックを読むので、`--before-sql` を二重に指定しなくてよい。runnora と docgen の `--before-sql` / `--after-sql` は廃止し、前後処理の指定はブロックと `runnora.yaml` に一本化する（[format-v2](design/format-v2.md) の 5.3）。
 - runn（v1.9.2）はトップレベルの未知のキーを無視するため、このブロックがあっても runbook はそのまま runn に渡せる（確認済み。詳細は [format-v2](design/format-v2.md) の 2 章）。
 
 ### 5.3 モックと契約テストのケース
