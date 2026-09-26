@@ -84,6 +84,7 @@ type RunOptions struct {
 	ReportOutput   string   // レポートファイルパス (--report-out)
 	Trace          bool     // トレースモード有効フラグ (--trace)
 	FailFast       bool     // 最初の失敗で停止するフラグ (--fail-fast)
+	Scopes         []string // runn に追加で許可するスコープ (--scopes)
 }
 
 // GenerateConfig は設定ファイルの generate セクション。

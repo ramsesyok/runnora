@@ -26,6 +26,7 @@ func newRunCmd() *cobra.Command {
 		reportOut    string
 		trace        bool
 		failFast     bool
+		scopes       []string
 	)
 
 	cmd := &cobra.Command{
@@ -43,6 +44,7 @@ func newRunCmd() *cobra.Command {
 				ReportOutput:   reportOut,
 				Trace:          trace,
 				FailFast:       failFast,
+				Scopes:         scopes,
 			}
 
 			// app.Runner に実行を委譲する。
@@ -84,6 +86,7 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&reportOut, "report-out", "", "レポート出力先ファイル（省略時は標準出力）")
 	cmd.Flags().BoolVar(&trace, "trace", false, "トレースモードを有効にする")
 	cmd.Flags().BoolVar(&failFast, "fail-fast", false, "最初の失敗で停止する")
+	cmd.Flags().StringSliceVar(&scopes, "scopes", nil, "runn に追加で許可するスコープ（例: run:exec）")
 
 	return cmd
 }

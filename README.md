@@ -136,6 +136,7 @@ runnora run [options] <runbook...>
 | `--report-out` | — | レポート出力先ファイル（省略時は標準出力） |
 | `--trace` | — | トレースモードを有効にする |
 | `--fail-fast` | — | 最初の失敗で停止する |
+| `--scopes` | — | runn に追加で許可するスコープ（例: `run:exec`。複数指定可） |
 
 **PL/SQL フックの実行順序:**
 
