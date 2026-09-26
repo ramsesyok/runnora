@@ -73,3 +73,15 @@ func TestRprofCmd_InvalidJSON_ReturnsError(t *testing.T) {
 		t.Fatal("expected error for invalid JSON, got nil")
 	}
 }
+
+func TestRprofCmd_NullProfile_ReturnsError(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "null.json")
+	if err := os.WriteFile(f, []byte("null"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	root := cmd.NewRootCmd()
+	root.SetArgs([]string{"rprof", f})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected error for null profile")
+	}
+}

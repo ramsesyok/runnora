@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -107,6 +109,9 @@ func buildGenerateOptions(
 ) (*config.GenerateOptions, error) {
 	// 設定ファイルを読み込む (存在しなければデフォルト値のみ使う)
 	cfg, cfgErr := loadConfigOrDefault(configPath)
+	if cfgErr != nil && !errors.Is(cfgErr, os.ErrNotExist) {
+		return nil, cfgErr
+	}
 
 	opts := &config.GenerateOptions{
 		ConfigPath:          configPath,
@@ -200,10 +205,8 @@ func buildGenerateOptions(
 }
 
 // loadConfigOrDefault は設定ファイルを読み込む。
-// ファイルが存在しない場合はデフォルト値の Config を返す。
+// ファイルが存在しない場合は呼び出し元がデフォルト値を使う。
 func loadConfigOrDefault(path string) (*config.Config, error) {
-	// internal/config の Load 関数を再利用する
-	// (存在しなければエラーを返すが呼び出し元で無視する)
 	return config.Load(path)
 }
 

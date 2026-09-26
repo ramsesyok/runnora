@@ -23,12 +23,12 @@ type EmitResult struct {
 // 1 回だけ API を呼んでステータスコードを検証する薄い runbook。
 // suite runbook からのみ直接実行されることを想定している。
 func EmitTemplate(outDir string, op *OperationInfo, openAPIPath, runnerName string, force bool) (string, error) {
-	dir := filepath.Join(outDir, "runbooks", "generated", op.PrimaryTag)
+	dir := filepath.Join(outDir, "runbooks", "generated", safeFileSegment(op.PrimaryTag))
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("generate: mkdir %s: %w", dir, err)
 	}
 
-	filename := op.OperationKey + ".template.yml"
+	filename := safeFileSegment(op.OperationKey) + ".template.yml"
 	path := filepath.Join(dir, filename)
 
 	if !force {
@@ -49,30 +49,30 @@ func buildTemplateContent(op *OperationInfo, runnerName string) string {
 	var sb strings.Builder
 
 	// desc
-	sb.WriteString("desc: ")
+	var desc string
 	if op.Summary != "" {
-		sb.WriteString(op.Summary)
+		desc = op.Summary
 	} else {
-		sb.WriteString(strings.ToUpper(op.Method) + " " + op.Path + " template")
+		desc = strings.ToUpper(op.Method) + " " + op.Path + " template"
 	}
-	sb.WriteString(" template\n")
+	sb.WriteString("desc: " + yamlScalar(desc+" template") + "\n")
 
 	// labels
 	sb.WriteString("labels:\n")
 	sb.WriteString("  - generated\n")
 	sb.WriteString("  - openapi\n")
 	if op.PrimaryTag != "default" {
-		sb.WriteString("  - " + op.PrimaryTag + "\n")
+		sb.WriteString("  - " + yamlScalar(op.PrimaryTag) + "\n")
 	}
 	sb.WriteString("  - method:" + op.Method + "\n")
 	if op.OperationID != "" {
-		sb.WriteString("  - operation:" + op.OperationID + "\n")
+		sb.WriteString("  - " + yamlScalar("operation:"+op.OperationID) + "\n")
 	}
 	sb.WriteString("  - mode:template\n")
 
 	// runners
 	sb.WriteString("\nrunners:\n")
-	sb.WriteString("  " + runnerName + ":\n")
+	sb.WriteString("  " + yamlScalar(runnerName) + ":\n")
 	sb.WriteString("    endpoint: ${RUNNORA_BASE_URL}\n")
 
 	// vars
@@ -82,8 +82,8 @@ func buildTemplateContent(op *OperationInfo, runnerName string) string {
 	// steps
 	sb.WriteString("\nsteps:\n")
 	sb.WriteString("  call_api:\n")
-	sb.WriteString("    " + runnerName + ":\n")
-	sb.WriteString("      " + op.RunbookPath + ":\n")
+	sb.WriteString("    " + yamlScalar(runnerName) + ":\n")
+	sb.WriteString("      " + yamlScalar(op.RunbookPath) + ":\n")
 	sb.WriteString("        " + op.Method + ":\n")
 	sb.WriteString("          headers: \"{{ vars.case.headers }}\"\n")
 
@@ -93,7 +93,7 @@ func buildTemplateContent(op *OperationInfo, runnerName string) string {
 		if op.RequestBodyContentType == "multipart/form-data" {
 			sb.WriteString("            multipart/form-data:\n")
 			for _, field := range op.MultipartFields {
-				sb.WriteString("              " + field.Name + ": \"{{ vars.case.requestBody." + field.Name + " }}\"\n")
+				sb.WriteString("              " + yamlScalar(field.Name) + ": " + yamlScalar("{{ vars.case.requestBody."+field.Name+" }}") + "\n")
 			}
 		} else {
 			sb.WriteString("            application/json: \"{{ vars.case.requestBody }}\"\n")
@@ -110,11 +110,17 @@ func normalizeYAMLPath(path string) string {
 	return strings.ReplaceAll(filepath.ToSlash(path), `\`, "/")
 }
 
+// JSON strings are valid YAML double-quoted scalars and cannot add YAML keys.
+func yamlScalar(value string) string {
+	b, _ := json.Marshal(value)
+	return string(b)
+}
+
 // EmitCase は default case JSON ファイルを生成して書き出す。
 //
 // 出力先: <outDir>/cases/generated/<tag>/<operationKey>/default.json
 func EmitCase(outDir string, op *OperationInfo, force bool) (string, error) {
-	dir := filepath.Join(outDir, "cases", "generated", op.PrimaryTag, op.OperationKey)
+	dir := filepath.Join(outDir, "cases", "generated", safeFileSegment(op.PrimaryTag), safeFileSegment(op.OperationKey))
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("generate: mkdir %s: %w", dir, err)
 	}
@@ -209,12 +215,12 @@ func buildQueryParams(params []ParameterInfo) map[string]interface{} {
 // suite runbook は cases/ 配下の case JSON を loop で読み込み、
 // template runbook を include する。
 func EmitSuite(outDir string, op *OperationInfo, casePaths []string, force bool) (string, error) {
-	dir := filepath.Join(outDir, "runbooks", "generated", op.PrimaryTag)
+	dir := filepath.Join(outDir, "runbooks", "generated", safeFileSegment(op.PrimaryTag))
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("generate: mkdir %s: %w", dir, err)
 	}
 
-	filename := op.OperationKey + ".suite.yml"
+	filename := safeFileSegment(op.OperationKey) + ".suite.yml"
 	path := filepath.Join(dir, filename)
 
 	if !force {
@@ -235,29 +241,29 @@ func buildSuiteContent(op *OperationInfo, outDir string, casePaths []string) str
 	var sb strings.Builder
 
 	// desc
-	sb.WriteString("desc: ")
+	var desc string
 	if op.Summary != "" {
-		sb.WriteString(op.Summary)
+		desc = op.Summary
 	} else {
-		sb.WriteString(strings.ToUpper(op.Method) + " " + op.Path)
+		desc = strings.ToUpper(op.Method) + " " + op.Path
 	}
-	sb.WriteString(" suite\n")
+	sb.WriteString("desc: " + yamlScalar(desc+" suite") + "\n")
 
 	// labels
 	sb.WriteString("labels:\n")
 	sb.WriteString("  - generated\n")
 	sb.WriteString("  - openapi\n")
 	if op.PrimaryTag != "default" {
-		sb.WriteString("  - " + op.PrimaryTag + "\n")
+		sb.WriteString("  - " + yamlScalar(op.PrimaryTag) + "\n")
 	}
 	sb.WriteString("  - method:" + op.Method + "\n")
 	if op.OperationID != "" {
-		sb.WriteString("  - operation:" + op.OperationID + "\n")
+		sb.WriteString("  - " + yamlScalar("operation:"+op.OperationID) + "\n")
 	}
 	sb.WriteString("  - mode:suite\n")
 
 	// vars.cases: suite ファイルから case ファイルへの相対パス
-	suiteDir := filepath.Join(outDir, "runbooks", "generated", op.PrimaryTag)
+	suiteDir := filepath.Join(outDir, "runbooks", "generated", safeFileSegment(op.PrimaryTag))
 	sb.WriteString("\nvars:\n")
 	sb.WriteString("  cases:\n")
 	for _, cp := range casePaths {
@@ -267,7 +273,7 @@ func buildSuiteContent(op *OperationInfo, outDir string, casePaths []string) str
 		}
 		// filepath.Rel は OS のパス区切り文字を使うので / に統一する
 		rel = filepath.ToSlash(rel)
-		sb.WriteString("    - json://" + rel + "\n")
+		sb.WriteString("    - " + yamlScalar("json://"+rel) + "\n")
 	}
 
 	// steps: loop + include
@@ -276,7 +282,7 @@ func buildSuiteContent(op *OperationInfo, outDir string, casePaths []string) str
 	sb.WriteString("    loop:\n")
 	sb.WriteString("      count: len(vars.cases)\n")
 	sb.WriteString("    include:\n")
-	sb.WriteString("      path: ./" + op.OperationKey + ".template.yml\n")
+	sb.WriteString("      path: " + yamlScalar("./"+safeFileSegment(op.OperationKey)+".template.yml") + "\n")
 	sb.WriteString("      vars:\n")
 	sb.WriteString("        case: \"{{ vars.cases[i] }}\"\n")
 

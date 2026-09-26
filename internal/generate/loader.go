@@ -266,13 +266,10 @@ func parameterSample(p *v3.Parameter) interface{} {
 		}
 	}
 	if p.Examples != nil {
-		for pair := p.Examples.Oldest(); pair != nil; pair = pair.Next() {
-			if pair.Value != nil && pair.Value.Value != nil {
-				if v := yamlNodeToInterface(pair.Value.Value); v != nil {
-					return v
-				}
+		if pair := p.Examples.Oldest(); pair != nil && pair.Value != nil && pair.Value.Value != nil {
+			if v := yamlNodeToInterface(pair.Value.Value); v != nil {
+				return v
 			}
-			break
 		}
 	}
 	if p.Schema == nil {
