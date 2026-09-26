@@ -78,6 +78,9 @@ func newRprofCmd() *cobra.Command {
 			if err := json.Unmarshal(b, &s); err != nil {
 				return fmt.Errorf("rprof: parse profile: %w", err)
 			}
+			if s == nil {
+				return fmt.Errorf("rprof: profile must be an object")
+			}
 
 			// Repair は欠損した時刻情報を子スパンから補完する。
 			// JSON がディスクへの途中書き込みで不完全になった場合でも
@@ -143,7 +146,7 @@ func collectRows(s *stopw.Span, depth, maxDepth int) ([]rprofRow, error) {
 
 	row := rprofRow{
 		label:   prefix + label,
-		elapsed: s.Elapsed(),  // StartedAt - StoppedAt から計算される
+		elapsed: s.Elapsed(), // StartedAt - StoppedAt から計算される
 		started: s.StartedAt,
 		stopped: s.StoppedAt,
 	}

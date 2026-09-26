@@ -2,8 +2,12 @@ package generate
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestBuildCaseDataMarshalKeepsTopLevelFieldOrder(t *testing.T) {
@@ -78,7 +82,7 @@ func TestBuildTemplateContentAddsQueryString(t *testing.T) {
 	}
 
 	got := buildTemplateContent(op, "req")
-	want := "/pet/findByStatus?status={{ vars.case.queryParams.status }}:"
+	want := yamlScalar("/pet/findByStatus?status={{ vars.case.queryParams.status }}") + ":"
 	if !strings.Contains(got, want) {
 		t.Fatalf("template path does not contain query parameter %q:\n%s", want, got)
 	}
@@ -115,8 +119,8 @@ func TestBuildTemplateContentUsesMultipartBody(t *testing.T) {
 	got := buildTemplateContent(op, "req")
 	for _, want := range []string{
 		"            multipart/form-data:\n",
-		"              additionalMetadata: \"{{ vars.case.requestBody.additionalMetadata }}\"\n",
-		"              file: \"{{ vars.case.requestBody.file }}\"\n",
+		"              \"additionalMetadata\": \"{{ vars.case.requestBody.additionalMetadata }}\"\n",
+		"              \"file\": \"{{ vars.case.requestBody.file }}\"\n",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("template does not contain multipart fragment %q:\n%s", want, got)
@@ -163,5 +167,76 @@ func TestNormalizeYAMLPath(t *testing.T) {
 	want := "docs/tutorial/openapi.yaml"
 	if got != want {
 		t.Fatalf("normalizeYAMLPath() = %q, want %q", got, want)
+	}
+}
+
+func TestEmittersContainUnsafeOpenAPIIdentifiers(t *testing.T) {
+	base := t.TempDir()
+	outDir := filepath.Join(base, "out")
+	op := &OperationInfo{
+		Method:       "get",
+		Path:         "/safe",
+		PrimaryTag:   "../../../escape",
+		OperationKey: "get_../../outside",
+		RunbookPath:  "/safe",
+		ExpectStatus: 200,
+	}
+
+	templatePath, err := EmitTemplate(outDir, op, "spec.yaml", "req", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	casePath, err := EmitCase(outDir, op, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	suitePath, err := EmitSuite(outDir, op, []string{casePath}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{templatePath, casePath, suitePath} {
+		rel, err := filepath.Rel(outDir, path)
+		if err != nil || !filepath.IsLocal(rel) {
+			t.Fatalf("generated path escaped output directory: %q (rel=%q, err=%v)", path, rel, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(base, "escape")); !os.IsNotExist(err) {
+		t.Fatalf("unsafe tag created a directory outside output: %v", err)
+	}
+	if safeFileSegment("a/b") == safeFileSegment("a_b") {
+		t.Fatal("different identifiers collapsed to the same filename")
+	}
+}
+
+func TestGeneratedYAMLQuotesOpenAPIText(t *testing.T) {
+	op := &OperationInfo{
+		Method:       "get",
+		Path:         "/safe",
+		Summary:      "safe\nsteps:\n  injected: {test: false}",
+		PrimaryTag:   "tag\nrunners:\n  injected: {}",
+		OperationID:  "id\nvars: {injected: true}",
+		OperationKey: "get_safe",
+		RunbookPath:  "/safe\n  injected: true",
+	}
+	for _, content := range []string{
+		buildTemplateContent(op, "req"),
+		buildSuiteContent(op, t.TempDir(), []string{"case.json"}),
+	} {
+		var parsed struct {
+			Desc    string         `yaml:"desc"`
+			Runners map[string]any `yaml:"runners"`
+			Steps   map[string]any `yaml:"steps"`
+		}
+		if err := yaml.Unmarshal([]byte(content), &parsed); err != nil {
+			t.Fatalf("generated YAML is invalid: %v\n%s", err, content)
+		}
+		if !strings.HasPrefix(parsed.Desc, op.Summary) || len(parsed.Steps) != 1 {
+			t.Fatalf("OpenAPI text changed the YAML structure: %+v\n%s", parsed, content)
+		}
+		if len(parsed.Runners) > 0 {
+			if len(parsed.Runners) != 1 {
+				t.Fatalf("OpenAPI text added a runner: %+v", parsed.Runners)
+			}
+		}
 	}
 }

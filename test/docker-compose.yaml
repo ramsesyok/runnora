@@ -3,7 +3,7 @@ services:
     image: ${ORACLE_IMAGE:-container-registry.oracle.com/database/free:latest}
     container_name: oracle-free
     ports:
-      - "1521:1521"
+      - "127.0.0.1:1521:1521"
     environment:
       ORACLE_PWD: "Oracle123!"
       ORACLE_CHARACTERSET: "AL32UTF8"
@@ -22,7 +22,7 @@ services:
       context: ./testgrpc
     container_name: testgrpc
     ports:
-      - "50051:50051"
+      - "127.0.0.1:50051:50051"
     environment:
       DB_DSN: "oracle://testuser:TestPass1!@oracle:1521/FREEPDB1"
     depends_on:
@@ -34,7 +34,7 @@ services:
       context: ./testapi
     container_name: testapi
     ports:
-      - "8081:8081"
+      - "127.0.0.1:8081:8081"
     environment:
       DB_DSN: "oracle://testuser:TestPass1!@oracle:1521/FREEPDB1"
     depends_on:

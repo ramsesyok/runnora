@@ -276,6 +276,7 @@ runnora generate [options]
 | `--emit-response-example` | — | レスポンス example を case に含める |
 
 生成物は再生成前提です。手編集が必要な runbook は `runbooks/evidence/` にコピーして育てる運用を推奨します。
+タグや operationId にファイル名として使えない文字がある場合、生成先の名前は安全な文字に置き換え、識別用の短いハッシュを付けます。`--emit-manifest` を指定した場合、元の値は manifest のメタデータに残ります。
 
 **使用例:**
 

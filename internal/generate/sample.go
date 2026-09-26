@@ -32,13 +32,10 @@ func extractSampleFromMediaType(mt *v3.MediaType) interface{} {
 
 	// 2. examples マップの最初の entry
 	if mt.Examples != nil {
-		for pair := mt.Examples.Oldest(); pair != nil; pair = pair.Next() {
-			if pair.Value != nil && pair.Value.Value != nil {
-				if v := yamlNodeToInterface(pair.Value.Value); v != nil {
-					return v
-				}
+		if pair := mt.Examples.Oldest(); pair != nil && pair.Value != nil && pair.Value.Value != nil {
+			if v := yamlNodeToInterface(pair.Value.Value); v != nil {
+				return v
 			}
-			break // 最初の 1 件だけ使う
 		}
 	}
 
