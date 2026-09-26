@@ -112,7 +112,7 @@ docker compose logs -f oracle
 
 ### 3. DB の初期化を確認する
 
-Oracle コンテナの初回起動時に `oracle-init/01_init.sql` が `/opt/oracle/scripts/setup` から実行され、`testuser` と `USERS` テーブルが作成されます。コンテナが healthy になった後、初期化結果を確認します。
+Oracle コンテナの起動時に `oracle-init/01_init.sql` が `/opt/oracle/scripts/startup` から実行され、未作成なら `testuser` と `USERS` テーブルが作成されます。コンテナが healthy になった後、初期化結果を確認します。
 
 ```bash
 docker exec -i oracle-free sqlplus -s "/ as sysdba" <<'SQL'
@@ -123,7 +123,7 @@ EXIT
 SQL
 ```
 
-初期化スクリプトは新規DB作成時に実行されます。既存の `oracle-data` ボリュームで再起動した場合は再実行されません。
+初期化スクリプトは再起動時にも実行されますが、既存のユーザーとテーブルは維持します。
 
 ### 4. テスト対象サービスを起動する
 

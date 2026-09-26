@@ -286,7 +286,7 @@ func buildRunnOptions(
 	runnOpts := []runn.Option{
 		// runbook ファイルから親ディレクトリ (../) へのアクセスを許可する。
 		// 例: runbook が ./runbooks/ にあり、SQL ファイルが ./sql/ にある構成で必要。
-		runn.Scopes("read:parent"),
+		runn.Scopes(append([]string{"read:parent"}, opts.Scopes...)...),
 	}
 
 	if len(beforeFiles) > 0 {
