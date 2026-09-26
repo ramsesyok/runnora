@@ -33,6 +33,24 @@ func newRunCmd() *cobra.Command {
 		Use:   "run [options] <runbook...>",
 		Short: "runbook を実行する",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// 設定ファイルを基準に、明示された CLI フラグを優先する。
+			cfg, cfgErr := config.Load(configPath)
+			if cfgErr != nil {
+				return &app.AppError{ExitCode: 2, Cause: cfgErr}
+			}
+			if !cmd.Flags().Changed("report-format") {
+				reportFormat = cfg.Report.Format
+			}
+			if !cmd.Flags().Changed("report-out") {
+				reportOut = cfg.Report.Output
+			}
+
+			// 不正な形式では runbook やフックを実行しない。
+			stdoutReporter, rerr := reporter.NewReporter(reportFormat, cmd.OutOrStdout())
+			if rerr != nil {
+				return &app.AppError{ExitCode: 2, Cause: rerr}
+			}
+
 			// CLI フラグを RunOptions に変換する。
 			// runbook パスは位置引数 (args) から受け取る。
 			opts := &config.RunOptions{
@@ -55,21 +73,22 @@ func newRunCmd() *cobra.Command {
 			// report != nil なら runbook は少なくとも一部実行されている。
 			// エラーがあっても先にレポートを出力し、その後エラーを返す。
 			if report != nil {
-				// 出力先が指定されていればファイルへ書く
-				var rep reporter.Reporter
+				rep := stdoutReporter
 				if reportOut != "" {
 					r, rerr := reporter.NewFileReporter(reportFormat, reportOut)
 					if rerr != nil {
-						return fmt.Errorf("report: %w", rerr)
+						return &app.AppError{ExitCode: 5, Cause: fmt.Errorf("report: %w", rerr)}
 					}
-					defer r.Close()
 					rep = r
-				} else {
-					// 指定なしは stdout
-					rep = reporter.NewTextReporter(cmd.OutOrStdout())
 				}
-				if werr := rep.Write(report); werr != nil {
-					return fmt.Errorf("report write: %w", werr)
+				writeErr := rep.Write(report)
+				if reportOut != "" {
+					if closeErr := rep.Close(); writeErr == nil {
+						writeErr = closeErr
+					}
+				}
+				if writeErr != nil {
+					return &app.AppError{ExitCode: 5, Cause: fmt.Errorf("report write: %w", writeErr)}
 				}
 			}
 

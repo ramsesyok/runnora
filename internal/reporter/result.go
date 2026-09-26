@@ -3,7 +3,7 @@
 // 設計方針:
 //   - Report / RunResult は純粋なデータ構造 (ロジックなし)
 //   - Reporter インターフェースを通じて出力先・形式を切り替えられる
-//   - text.go に TextReporter と fileReporter を実装
+//   - text / json / junit の各 Reporter を提供
 //
 // 出力例 (TextReporter):
 //
@@ -25,10 +25,10 @@ package reporter
 //	rep := reporter.NewTextReporter(os.Stdout)
 //	rep.Write(report)
 type Report struct {
-	Total   int
-	Passed  int
-	Failed  int
-	Results []RunResult
+	Total   int         `json:"total"`
+	Passed  int         `json:"passed"`
+	Failed  int         `json:"failed"`
+	Results []RunResult `json:"results"`
 }
 
 // RunResult は 1 つの runbook の実行結果を保持する。
@@ -40,9 +40,10 @@ type Report struct {
 //
 // Error フィールドには runn が生成するエラーメッセージが入る。
 // 例: "assert failed: steps.check.res.status == 200"
-//     "hook before ./sql/setup.sql: oracle: exec: ORA-00942"
+//
+//	"hook before ./sql/setup.sql: oracle: exec: ORA-00942"
 type RunResult struct {
-	Path   string
-	Passed bool
-	Error  string
+	Path   string `json:"path"`
+	Passed bool   `json:"passed"`
+	Error  string `json:"error,omitempty"`
 }

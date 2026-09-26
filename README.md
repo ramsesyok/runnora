@@ -164,7 +164,15 @@ runnora run \
 
 # fail-fast モードで最初の失敗で停止
 runnora run --config ./config.yaml --fail-fast runbooks/*.yml
+
+# JSON を標準出力へ出す
+runnora run --config ./config.yaml --report-format json runbooks/hello_world.yml
+
+# CI 用の JUnit XML をファイルへ保存する
+runnora run --config ./config.yaml --report-format junit --report-out ./junit.xml runbooks/hello_world.yml
 ```
+
+`json` は `total` / `passed` / `failed` と、runbook ごとの `path` / `passed` / `error` を出力します。`junit` は各 runbook を `<testcase>` にし、失敗内容を `<failure>` に記録します。形式と出力先は設定ファイルの `report.format` / `report.output` でも指定でき、CLI フラグを指定した場合はそちらを優先します。runbook が失敗した場合もレポートを出力してから終了します。指定できない形式は実行前にエラーになります。
 
 **終了コード:**
 
