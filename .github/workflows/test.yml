@@ -49,6 +49,25 @@ jobs:
       - name: Start Oracle and test API
         run: docker compose -f test/docker-compose.yaml up -d --build --wait --wait-timeout 900 testapi
 
+      - name: Wait for Oracle schema
+        shell: bash
+        run: |
+          for attempt in {1..60}; do
+            if docker exec -i oracle-free sqlplus -s "/ as sysdba" <<'SQL' | grep -q 'SCHEMA_READY'
+          ALTER SESSION SET CONTAINER = FREEPDB1;
+          SET HEADING OFF FEEDBACK OFF PAGESIZE 0
+          SELECT 'SCHEMA_READY' FROM dba_tables WHERE owner = 'TESTUSER' AND table_name = 'USERS';
+          EXIT
+          SQL
+            then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Oracle schema did not become ready" >&2
+          docker compose -f test/docker-compose.yaml logs --no-color oracle >&2
+          exit 1
+
       - name: Verify Oracle schema and API
         shell: bash
         run: |
@@ -64,7 +83,7 @@ jobs:
           EXIT
           SQL
           for attempt in {1..30}; do
-            if curl --fail --silent http://localhost:8081/health | grep -q '"status":"ok"'; then
+            if curl --fail --silent http://localhost:8081/health | grep -q '"db":"ok"'; then
               exit 0
             fi
             sleep 2
