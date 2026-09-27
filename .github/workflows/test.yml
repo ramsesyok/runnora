@@ -134,6 +134,10 @@ jobs:
           jq -e '.results[] | select(.id == "PLSQL-AFTER-HOOK-FAILURE")
                  | .hooks | map(select(.ok == false)) | length == 1 and (.[0].phase == "after") and (.[0].error | contains("ORA-20001"))' "$run_dir/report.json"
 
+          # サマリー HTML: シナリオと、証跡への相対リンクが載っていること
+          grep -q 'PLSQL-HOOK-VERIFY' "$run_dir/summary.html"
+          grep -q 'href="evidence/PLSQL-HOOK-VERIFY/01-check_seeded_count.json"' "$run_dir/summary.html"
+
           docker exec -i oracle-free sqlplus -s "/ as sysdba" <<'SQL'
           WHENEVER SQLERROR EXIT FAILURE
           ALTER SESSION SET CONTAINER = FREEPDB1;

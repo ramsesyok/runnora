@@ -127,11 +127,11 @@ func newRunCmd() *cobra.Command {
 			// エラーがあっても先にレポートを出力し、その後エラーを返す。
 			if report != nil {
 				report.EvidenceDir = folder.relEvidenceDir()
-				jsonPath, werr := folder.writeReports(report, reportFormat)
+				htmlPath, werr := folder.writeReports(report, reportFormat)
 				if werr != nil {
 					return werr
 				}
-				defer fmt.Fprintf(cmd.ErrOrStderr(), "レポート: %s\n", displayRel(jsonPath))
+				defer fmt.Fprintf(cmd.ErrOrStderr(), "レポート: %s\n", displayRel(htmlPath))
 				rep := stdoutReporter
 				if reportOut != "" {
 					r, rerr := reporter.NewFileReporter(reportFormat, reportOut)

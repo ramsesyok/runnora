@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>runnora 実行結果{{with .Suite}} - {{.}}{{end}}</title>
+<style>
+:root { --fail: #b42318; --fail-bg: #fef3f2; --pass: #067647; --pass-bg: #ecfdf3; --skip: #667085; --line: #d0d5dd; --head: #f2f4f7; }
+body { font-family: sans-serif; font-size: 14px; color: #101828; background: #fff; margin: 16px; line-height: 1.5; }
+h1 { font-size: 20px; margin: 0 0 12px; }
+h2 { font-size: 16px; margin: 20px 0 8px; }
+table { border-collapse: collapse; margin: 4px 0 8px; }
+th, td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: top; }
+th { background: var(--head); font-weight: normal; white-space: nowrap; }
+.info th { width: 10em; }
+.counts td { font-size: 18px; text-align: center; min-width: 5em; }
+.counts .has-fail { color: var(--fail); background: var(--fail-bg); font-weight: bold; }
+.pass { color: var(--pass); }
+.fail { color: var(--fail); font-weight: bold; }
+.skip { color: var(--skip); }
+tr.row-fail td, tr.hook-fail td { background: var(--fail-bg); }
+pre { margin: 0; white-space: pre-wrap; word-break: break-all; font-size: 12px; }
+details.rb { border: 1px solid var(--line); border-radius: 4px; margin: 6px 0; }
+details.rb.rb-fail { border-color: var(--fail); }
+details.rb > summary { cursor: pointer; padding: 6px 8px; list-style-position: inside; }
+details.rb.rb-fail > summary { background: var(--fail-bg); }
+details.rb > div { padding: 0 8px 8px; overflow-x: auto; }
+.id { font-weight: bold; margin-right: 8px; }
+.meta { color: var(--skip); margin-left: 8px; }
+.controls { margin: 8px 0; }
+.controls label { margin-right: 16px; }
+.diff { margin-top: 4px; }
+.muted { color: var(--skip); }
+@media print {
+  .controls { display: none; }
+  details.rb > summary { list-style: none; }
+}
+</style>
+</head>
+<body>
+<h1>runnora 実行結果</h1>
+
+<table class="info">
+{{- with .Project}}<tr><th>プロジェクト</th><td>{{.}}</td></tr>{{end}}
+{{- with .Env}}<tr><th>環境</th><td>{{.Name}}{{with .Description}}（{{.}}）{{end}}{{with .Overrides}}<br><span class="muted">上書きされた変数: {{range $i, $v := .}}{{if $i}}, {{end}}{{$v}}{{end}}</span>{{end}}</td></tr>{{end}}
+{{- with .Suite}}<tr><th>スイート</th><td>{{.}}</td></tr>{{end}}
+{{- with .Backends}}<tr><th>裏のサービス</th><td>{{range .}}{{.Name}} = {{.Mode}}{{with .Note}}（{{.}}）{{end}}<br>{{end}}</td></tr>{{end}}
+{{- with .StartedAt}}<tr><th>開始日時</th><td>{{.}}</td></tr>{{end}}
+<tr><th>所要時間</th><td>{{elapsed .ElapsedMs}}</td></tr>
+{{- with .Runnora}}<tr><th>runnora</th><td>{{.}}</td></tr>{{end}}
+{{- with .EvidenceDir}}<tr><th>証跡</th><td>{{.}}</td></tr>{{end}}
+</table>
+
+<h2>集計</h2>
+<table class="counts">
+<tr><th>合計</th><th>合格</th><th>不合格</th><th>スキップ</th></tr>
+<tr><td>{{.Total}}</td><td class="pass">{{.Passed}}</td><td{{if .Failed}} class="has-fail"{{end}}>{{.Failed}}</td><td class="skip">{{.Skipped}}</td></tr>
+</table>
+
+<h2>runbook</h2>
+<div class="controls">
+<label><input type="checkbox" id="fail-first"> 不合格を先頭に並べる</label>
+<label><input type="checkbox" id="fail-only"> 不合格だけ表示</label>
+</div>
+<div id="runbooks">
+{{- range $i, $rb := .Runbooks}}
+<details class="rb rb-{{verdict .RunResult}}" data-order="{{$i}}">
+<summary><span class="id">{{.Name}}</span>{{.Desc}}<span class="meta">期待: {{actualText (or .Expect "pass")}} / 結果: {{actualText .Actual}}{{if .ElapsedMs}} / {{elapsed .ElapsedMs}}{{end}}</span> — <span class="{{verdict .RunResult}}">{{if eq (verdict .RunResult) "pass"}}合格{{else if eq (verdict .RunResult) "fail"}}不合格{{else}}スキップ{{end}}</span></summary>
+<div>
+<p class="muted">{{.Path}}</p>
+{{- with .Error}}<p class="fail">エラー</p><pre>{{.}}</pre>{{end}}
+{{- with .Hooks}}
+<p>前後処理</p>
+<table>
+<tr><th>時点</th><th>ファイル</th><th>結果</th><th>エラー</th></tr>
+{{- range .}}
+<tr{{if not .OK}} class="hook-fail"{{end}}><td>{{if eq .Phase "before"}}前{{else}}後{{end}}</td><td>{{.File}}</td><td class="{{if .OK}}pass{{else}}fail{{end}}">{{if .OK}}成功{{else}}失敗{{end}}</td><td><pre>{{.Error}}</pre></td></tr>
+{{- end}}
+</table>
+{{- end}}
+{{- with .Steps}}
+<p>ステップ</p>
+<table>
+<tr><th>#</th><th>キー</th><th>説明</th><th>結果</th><th>時間</th><th>失敗メッセージ・差分</th><th>証跡</th></tr>
+{{- range .}}
+<tr{{if eq .Result "failure"}} class="row-fail"{{end}}><td>{{.Index}}</td><td>{{.Key}}</td><td>{{.Desc}}</td><td class="{{if eq .Result "success"}}pass{{else if eq .Result "failure"}}fail{{else}}skip{{end}}">{{stepLabel .Result}}</td><td>{{if .ElapsedMs}}{{elapsed .ElapsedMs}}{{end}}</td>
+<td>{{with .Error}}<pre>{{.}}</pre>{{end}}
+{{- range .Diffs}}
+<div class="diff">diffEps: 差分 {{.Differences}} 件{{with .Link}}（全件: <a href="{{.Href}}">{{.Name}}</a>）{{end}}
+<table>
+<tr><th>パス</th><th>種類</th><th>期待</th><th>実際</th></tr>
+{{- range diffItems .DiffSummary}}
+<tr><td>{{.Path}}</td><td>{{.Kind}}</td><td><pre>{{json .Expected}}</pre></td><td><pre>{{json .Actual}}</pre></td></tr>
+{{- end}}
+</table>
+{{- if gt .Differences (len .Items)}}<span class="muted">先頭 {{len .Items}} 件のみ表示</span>{{end}}
+</div>
+{{- end}}</td>
+<td>{{range .Links}}<a href="{{.Href}}">{{.Name}}</a><br>{{end}}</td></tr>
+{{- end}}
+</table>
+{{- end}}
+</div>
+</details>
+{{- end}}
+</div>
+
+<script>
+(function () {
+  var box = document.getElementById("runbooks");
+  var first = document.getElementById("fail-first");
+  var only = document.getElementById("fail-only");
+  function apply() {
+    var items = Array.prototype.slice.call(box.children);
+    items.sort(function (a, b) {
+      if (first.checked) {
+        var fa = a.classList.contains("rb-fail") ? 0 : 1, fb = b.classList.contains("rb-fail") ? 0 : 1;
+        if (fa !== fb) return fa - fb;
+      }
+      return Number(a.dataset.order) - Number(b.dataset.order);
+    });
+    items.forEach(function (el) {
+      el.style.display = only.checked && !el.classList.contains("rb-fail") ? "none" : "";
+      box.appendChild(el);
+    });
+  }
+  first.addEventListener("change", apply);
+  only.addEventListener("change", apply);
+  window.addEventListener("beforeprint", function () {
+    document.querySelectorAll("details").forEach(function (d) { d.open = true; });
+  });
+})();
+</script>
+</body>
+</html>

@@ -348,7 +348,7 @@ runnora-docgen の `manifest.json` に、手順番号とステップのキーの
 1. `internal/evidence` と実行ごとのフォルダ（`report.json` はまだ runbook 単位。証跡のファイルの一覧を runbook ごとに載せる）… 実装済み
 2. ステップ単位の `report.json` と、画面のテキストの追加行 … 実装済み
 3. `diffEps()` … 実装済み
-4. `summary.html`
+4. `summary.html` … 実装済み
 5. runnora-migrate の拡張と、e2e の書き換え
 6. docgen の `manifest.json` の拡張（runnora-docgen）
 
