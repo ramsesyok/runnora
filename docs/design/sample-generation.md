@@ -1,7 +1,7 @@
 # サンプル生成 詳細設計：リクエスト JSON・レスポンス JSON の雛形
 
 作成日: 2026-09-27
-状態: 詳細設計（レビュー待ち）。実装は未着手。
+状態: 詳細設計済み。**5.1〜5.3（値の決め方）と 8 章の共通化を実装済み**（2026-09-28）：oapi2wire の公開パッケージ `pkg/sample` に規則を置き、`oapi2wire init` と `runnora generate` の両方が使う（`runnora/internal/generate/sample.go` は `pkg/sample` を呼ぶだけにした）。5.4 の `pattern` に一致する文字列の生成はまだで、いまは 5.4 の作れない場合と同じ `"TODO: pattern <pattern>"` を入れる。未実装：4 章（ファイル構成）、5.4〜5.6、6 章（proto）、7 章（CLI の追加）。
 上位文書: [ツール群 連携設計（方針）](../integration-design.md) の実施順 6（OpenAPI）と実施順 8（gRPC）
 
 ## 1. 目的
