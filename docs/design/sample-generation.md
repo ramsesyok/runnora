@@ -163,8 +163,8 @@ cases/grpc/<package>.<Service>/<Method>/
 | 型 | 値 |
 |---|---|
 | string | **`"TODO"`**（2026-09-27 決定）。編集していない箇所が一目で分かり、`TODO` で検索できるようにするため。`minLength` / `maxLength` に合わなくても `"TODO"` のままにする（編集を前提とした目印なので）。`pattern` がある場合は 5.4 |
-| integer | `minimum`（`exclusiveMinimum` なら +1）があればその値。なければ `1`。`maximum` が 1 未満ならその値。`multipleOf` があれば、条件を満たす最小の倍数 |
-| number | integer と同じ規則で、既定値は `1.5` |
+| integer | **`0`**（2026-09-27 決定）。`minimum` / `maximum` / `exclusiveMinimum` / `exclusiveMaximum` が 0 を許さない場合だけ、0 に最も近い許される値にする（例：`minimum: 1` なら `1`、`exclusiveMinimum: 0` なら `1`、`maximum: -1` なら `-1`）。`multipleOf` は 0 が常に満たすので、範囲で 0 以外になったときだけ、条件を満たす 0 に最も近い倍数にする |
+| number | **`0.0`**（2026-09-27 決定）。範囲の扱いは integer と同じ（`exclusiveMinimum: 0` のように 0 に最も近い値が決まらない場合は、境界 + 1 の `1.0` とする）。JSON に `0` ではなく `0.0` と書き出す（5.6） |
 | boolean | `true` |
 | array | `minItems`（なければ 1）個の要素を作る。`uniqueItems` で要素が文字列なら `"TODO-1"`、`"TODO-2"` のように番号を付けて重複を避ける |
 | object | `properties` を順に作る。`additionalProperties` だけの object は `{"TODO": <値>}` |
@@ -199,6 +199,14 @@ OpenAPI の example 由来の値と、規則で作った仮の値を区別でき
 - `--emit-manifest` を指定したときは、同じ一覧を manifest に入れる。
 - `runnora validate` は、`cases/`・`mock/responses/` に残っている `"TODO` で始まる値を警告する。
 
+### 5.6 浮動小数の書き出し
+
+JSON には整数と浮動小数の区別がなく、Go の `encoding/json` は浮動小数の 0 も `0` と書き出す。雛形では型が分かるように、浮動小数（OpenAPI の `number`、proto の `float` / `double`）の値は**小数点を付けて書き出す**（`0.0`、`1.0`）。
+
+- 規則で作った値だけでなく、example から取った値も、`number` 型なら小数点を付ける（例：example が `3` なら `3.0`）。
+- 読み込む側（runn の `compare`、runnora-diff）は `0` と `0.0` を同じ数値として扱うので、比較の結果には影響しない。
+- 実装では、生成した値を書き出すときに浮動小数を `json.Number` に変換してから出力する。
+
 ## 6. proto の値の決め方
 
 proto には example を書く標準の方法がないため、型から作る。
@@ -207,9 +215,9 @@ proto には example を書く標準の方法がないため、型から作る�
 |---|---|
 | `string` | `"TODO"`（5.3 と同じ） |
 | `bytes` | `"c2FtcGxl"`（base64） |
-| `int32` / `uint32` / `sint32` / `fixed32` / `sfixed32` | `1` |
-| `int64` / `uint64` / `sint64` / `fixed64` / `sfixed64` | `"1"`（protojson の仕様で文字列） |
-| `float` / `double` | `1.5` |
+| `int32` / `uint32` / `sint32` / `fixed32` / `sfixed32` | `0` |
+| `int64` / `uint64` / `sint64` / `fixed64` / `sfixed64` | `"0"`（protojson の仕様で文字列） |
+| `float` / `double` | `0.0`（5.6） |
 | `bool` | `true` |
 | `enum` | 値が 0 ではない最初の値の**番号**（0 は `*_UNSPECIFIED` とする慣例のため）。0 しかなければ 0。5.5 の一覧には値の名前も載せる |
 | message | フィールドを順に再帰して作る |
