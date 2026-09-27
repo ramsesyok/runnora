@@ -46,6 +46,7 @@ runnora / oapi2wire / runnora-diff / runnora-docgen / runnora-e2e のベータ�
 | F | runnora-diff を `exec` で呼んでいる。`--scopes run:exec`、stdin 末尾の空白、CWD 基準のパス、`shell: pwsh` への依存がある | grpc-test |
 | G | 証跡のために、全 runbook に `dump` ステップと `RUNNORA_EVIDENCE_DIR` を手で書いている | e2e 全体 |
 | H | endpoint と DSN が config と runbook に直書きで、環境を切り替えられない | e2e 全体 |
+| I | リクエスト・レスポンスの雛形を runnora と oapi2wire が別々の規則で作り、置き場所も違う。仮の値が `TODO` や `0` で、proto からは作らない | `internal/generate/sample.go`、oapi2wire `internal/openapi/sample_generator.go`（詳細は [sample-generation](design/sample-generation.md)） |
 
 ## 3. ツール構成
 
@@ -53,7 +54,7 @@ runnora / oapi2wire / runnora-diff / runnora-docgen / runnora-e2e のベータ�
 
 | ツール | 位置づけ |
 |---|---|
-| runnora | 中核の CLI。generate / mock / run / doc 連携の入口 |
+| runnora | 中核の CLI。generate / mock / run / doc 連携の入口。いまの `genmock` サブコマンドは `mock` に改名する（`runnora mock init` / `build` / `validate`） |
 | oapi2wire | Go ライブラリ（`pkg/oapi2wire`）として runnora が取り込む。**単体 CLI も存続**する（フロントチームは runnora も Oracle も使わず、oapi2wire と WireMock だけで使う） |
 | runnora-diff | Go ライブラリ（`jsondiff`）として runnora が取り込み、runn の組み込み関数にする。単体 CLI も存続する |
 | runnora-docgen | 別バイナリのまま。Quarto / ddq の様式という関心事とリリースサイクルが違うため。runbook と `runnora.yaml` をファイル契約として読む |
@@ -132,8 +133,8 @@ runners:
 
 - 1 ファイルを見ればシナリオの前提が分かる。レビューも移行もファイル単位で済む。
 - `runnora run runbooks/scenarios/*.yml` だけで、固有の SQL も含めて正しく実行される。
-- docgen も同じブロックを読むので、`--before-sql` を二重に指定しなくてよい。
-- 要検証：runn がトップレベルの未知のキーを許容するか。許容しない場合は、runnora が読み込み時にこのブロックを取り除いてから runn に渡す。
+- docgen も同じブロックを読むので、`--before-sql` を二重に指定しなくてよい。runnora と docgen の `--before-sql` / `--after-sql` は廃止し、前後処理の指定はブロックと `runnora.yaml` に一本化する（[format-v2](design/format-v2.md) の 5.3）。
+- runn（v1.9.2）はトップレベルの未知のキーを無視するため、このブロックがあっても runbook はそのまま runn に渡せる（確認済み。詳細は [format-v2](design/format-v2.md) の 2 章）。
 
 ### 5.3 モックと契約テストのケース
 
@@ -160,13 +161,101 @@ runners:
 - suite はケースディレクトリから導出する（手で書かない。`loop` は使わず、ケースごとに include ステップを並べる）。
 - シナリオ試験（状態と DB を扱う）はモックを参照しない。モックへの依存は契約テストの層に閉じ込める。
 
+### 5.4 テストプロジェクトのファイル構成
+
+1 つの API（と、その裏の gRPC 演算サービス）のテスト一式を、1 つのプロジェクト（`runnora.yaml` が 1 つ）にまとめる。API 単体・gRPC 単体・結合は、同じプロジェクトの中で環境とスイートを切り替えて実行する。
+
+```text
+<project>/                             プロジェクトルート（runnora.yaml の場所。Git リポジトリのルートを想定）
+├─ runnora.yaml                        プロジェクトファイル（環境・スイート・変数・共通フック）
+├─ openapi/
+│  └─ openapi.yaml                     API 定義（正本）                                  ★フロント
+├─ proto/
+│  └─ *.proto                          gRPC 定義（正本）
+├─ mock/                               モック（テストチームの持ち物）
+│  ├─ mock-cases.yaml                  oapi2wire のモックケース                          ★フロント
+│  └─ responses/
+│     └─ <operationId>/<caseId>.json   応答本文。契約テストの期待本文も兼ねる            ★フロント
+├─ runbooks/
+│  ├─ generated/                       runnora generate の出力（再生成する。手で編集しない）
+│  │  ├─ api/<tag>/<method>_<operationId>.template.yml / .suite.yml
+│  │  └─ grpc/<service>/<method>.template.yml / .suite.yml          （実施順 8 で追加）
+│  ├─ contract/                        API の契約テスト（operation ごとの template と suite。suite は実施順 6 でケースから導出する）
+│  ├─ scenarios/                       API 単体シナリオ（runnora: ブロックあり。結合テストで流用）
+│  └─ grpc/                            gRPC 単体シナリオ（runnora: ブロックあり）
+├─ cases/
+│  ├─ generated/                       generate の出力（再生成する）
+│  ├─ contract/<operationId>/<NN_name>.json   契約ケース（request と expect.mock）
+│  ├─ scenarios/<scenarioId>/*.json    API シナリオで使う入力・期待値
+│  └─ grpc/<scenarioId>/request.json, expected.json   gRPC シナリオの入力・期待値
+├─ rules/                              runnora-diff の許容誤差（default.yaml、integration.yaml など）
+├─ sql/
+│  ├─ common/                          環境の共通フック（リセット・シード・不変条件の検証）
+│  └─ cases/                           シナリオ固有の前後処理
+├─ docs/                               手順書（Quarto book）。_quarto.yml・章立て・本文は手書き
+│  └─ generated/                       runnora-docgen の出力（再生成する）
+├─ out/                                ビルド成果物（Git 管理外）
+│  ├─ wiremock/                        mappings/ と __files/（runnora mock build）
+│  └─ frontend-mock.zip                フロント向けの一式（oapi2wire pack。→ 6 章）
+└─ reports/                            実行結果（Git 管理外）
+   └─ <日時>-<suite>/                  レポート（text / json / junit / html）と evidence/
+```
+
+★フロント：フロントチームに渡すもの（6 章）。
+
+| ディレクトリ | 作り方 | 手で編集 | Git 管理 | 持ち主 | フロントに渡す |
+|---|---|---|---|---|---|
+| `runnora.yaml` | `runnora init` の雛形を編集 | する | する | テストチーム | 渡さない |
+| `openapi/`、`proto/` | API・gRPC の設計者が作成 | ―（正本を置くだけ） | する | 設計者 | `openapi.yaml` だけ渡す |
+| `mock/mock-cases.yaml` | `runnora mock init` の雛形を編集 | する | する | テストチーム | 渡す |
+| `mock/responses/` | 同上（応答の雛形を編集） | する | する | テストチーム | 渡す |
+| `runbooks/generated/`、`cases/generated/` | `runnora generate` | しない | する（再生成の差分をレビューで確認するため） | ― | 渡さない |
+| `runbooks/contract/`、`cases/contract/` | 生成物をもとに作成 | する | する | テストチーム | 渡さない |
+| `runbooks/scenarios/`、`runbooks/grpc/`、`cases/scenarios/`、`cases/grpc/` | 手書き | する | する | テストチーム | 渡さない |
+| `rules/`、`sql/` | 手書き | する | する | テストチーム | 渡さない |
+| `docs/`（`generated/` 以外） | 手書き | する | する | テストチーム | 渡さない |
+| `docs/generated/` | `runnora-docgen` | しない | する | ― | 渡さない |
+| `out/` | `runnora mock build`、`oapi2wire pack` | しない | しない | ― | `frontend-mock.zip` を渡す |
+| `reports/` | `runnora run` | しない | しない | ― | 渡さない |
+
+- runbook からの参照は runn の仕様どおり runbook の位置が基準になる（例：`runbooks/contract/` の template から `json://../../cases/contract/...`）。`runnora:` ブロックと `runnora.yaml` の中のパスはプロジェクトルート基準（[format-v2](design/format-v2.md) の 3 章）。
+- runnora-e2e の現状との対応：`fixtures/responses/` → `mock/responses/`、`mock/wiremock-out/` → `out/wiremock/`、`config.yaml` と `config.mock.yaml` → `runnora.yaml` の環境、`scripts/scenarios.psd1` → 各 runbook の `runnora:` ブロック。`api-test/` と `grpc-test/` は、見本としては分けたままでもよいが、実案件では 1 つのプロジェクトにまとめる形を推奨する。
+
 ## 6. フロントチームへのモック受け渡し
 
 - 受け渡しは一方通行で、同期はしない。フロントは受け取ったあと自由に改変する。
-- 渡すのは `openapi.yaml`、`mock-cases.yaml`、応答 JSON、oapi2wire のバイナリの一式（ビルド済みの `wiremock-out/` だけでは改変しにくい）。一式を固めるコマンド（例：`oapi2wire pack`）を用意する。
+- 渡すのは `openapi.yaml`、`mock-cases.yaml`、応答 JSON、ビルド済みの WireMock 資産、oapi2wire のバイナリの一式（ビルド済みの資産だけでは改変しにくい）。一式を固めるコマンド（`oapi2wire pack`）を用意する。中身は次の「渡すファイル」のとおり。
 - データの性格はテスト向け（具体値の照合、異常系が多い）であることを、受け渡しのときに伝える。
 - フロントが早い時期にモックを必要とする場合は、第 1 弾として `oapi2wire init` の雛形を渡し、テストで作り込んだ版を後から渡す。
 - 任意（要望が出たら）：`--cases` を複数指定して重ねられるようにし、フロントが自分たちの改変を別ファイルに分けておけるようにする。
+
+### 渡すファイル
+
+`oapi2wire pack` で次の一式を 1 つの zip（`out/frontend-mock.zip`）にまとめる。
+
+```text
+frontend-mock/
+├─ README.md                           起動と再ビルドの手順、データの性格（テスト向け）、作成元（OpenAPI の version、Git のコミット、作成日）
+├─ openapi.yaml                        ← openapi/openapi.yaml
+├─ mock-cases.yaml                     ← mock/mock-cases.yaml
+├─ responses/<operationId>/<caseId>.json   ← mock/responses/
+├─ wiremock/                           ← out/wiremock/（ビルド済み。受け取ってすぐ起動できる）
+│  ├─ mappings/
+│  └─ __files/
+└─ bin/oapi2wire(.exe)                 改変後の再ビルド用（任意。OS ごとに用意）
+```
+
+- WireMock 本体（Java の jar）は同梱しない。フロント側で用意する（同梱する場合は Apache License 2.0 の表記を README に入れる）。
+- **渡さないもの**：`runnora.yaml`、runbook、ケース、`sql/`、`rules/`、`docs/`、`reports/`。テストの内部情報（DB の接続先、シード用のデータ、テストの判定条件）を含むため。
+- 応答 JSON に社外に出せないデータ（実在の人名、社内のホスト名など）を入れないことは、モックケースを作るときの約束として手順書に書いておく。
+
+フロント側での使い方：
+
+| やりたいこと | 手順 |
+|---|---|
+| そのまま使う | `java -jar wiremock-standalone.jar --root-dir wiremock` |
+| モックを改変する | `mock-cases.yaml` と `responses/` を編集し、`oapi2wire build --openapi openapi.yaml --cases mock-cases.yaml --responses-root responses --out wiremock --clean` |
+| API の変更を取り込む | 新しい `openapi.yaml` を受け取り、`oapi2wire validate` で改変済みのモックケースとの不整合を確認する |
 
 ### API 変更への追従
 
@@ -231,12 +320,12 @@ runners:
 | # | 内容 | 状態 |
 |---|---|---|
 | 1 | すぐ直す：grpc-test の runnora-diff ビルド、oapi2wire の mapping id を安定化、e2e README の古い記述 | 対応済み（各リポジトリの作業ブランチ） |
-| 2 | 新形式を固める：`runnora.yaml`、`runnora:` ブロック、変数展開、`version: 2` | |
+| 2 | 新形式を固める：`runnora.yaml`、`runnora:` ブロック、変数展開、`version: 2` | 詳細設計済み（[format-v2](design/format-v2.md)）。実装は未着手 |
 | 3 | runtime：証跡の自動保存、`diffEps()` の内蔵、ステップ単位の JSON レポート、サマリー HTML | |
 | 4 | e2e を新形式に書き直す（見本と移行の実例） | |
 | 5 | `runnora-migrate` を作り、先行チームへ適用する | |
-| 6 | 契約ケースとモック参照の統一、suite の導出、OpenAPI の静的検査 | |
+| 6 | 契約ケースとモック参照の統一、suite の導出、OpenAPI の静的検査、サンプル生成の共通化と改善（リクエスト・レスポンスを別ファイルに、制約に沿った値に） | サンプル生成は詳細設計済み（[sample-generation](design/sample-generation.md)） |
 | 7 | docgen の入力を新形式に切り替える | |
-| 8 | `generate --proto`、JSON Schema、VSCode 拡張 | |
+| 8 | `generate --proto`（proto からリクエスト・期待値の雛形を生成）、JSON Schema、VSCode 拡張 | proto のサンプル生成は詳細設計済み（[sample-generation](design/sample-generation.md)） |
 
 優先順位は、先行チーム（手書きシナリオ中心）に効く 2・3 を先にし、契約テスト周りの 6 を後にしている。
