@@ -89,11 +89,12 @@ func TestRun_EvidenceAndRunFolder(t *testing.T) {
 		Suite       string `json:"suite"`
 		EvidenceDir string `json:"evidenceDir"`
 		Results     []struct {
-			ID       string `json:"id"`
-			Evidence []struct {
-				Key  string `json:"key"`
-				Path string `json:"path"`
-			} `json:"evidence"`
+			ID    string `json:"id"`
+			Steps []struct {
+				Key      string   `json:"key"`
+				Result   string   `json:"result"`
+				Evidence []string `json:"evidence"`
+			} `json:"steps"`
 		} `json:"results"`
 	}
 	b, err := os.ReadFile(filepath.Join(run, "report.json"))
@@ -108,10 +109,10 @@ func TestRun_EvidenceAndRunFolder(t *testing.T) {
 	}
 	byID := map[string]string{}
 	for _, r := range rep.Results {
-		if len(r.Evidence) != 1 || r.Evidence[0].Key != "hello" {
-			t.Fatalf("%s evidence: %+v", r.ID, r.Evidence)
+		if len(r.Steps) == 0 || r.Steps[0].Key != "hello" || len(r.Steps[0].Evidence) != 1 {
+			t.Fatalf("%s steps: %+v", r.ID, r.Steps)
 		}
-		byID[r.ID] = r.Evidence[0].Path
+		byID[r.ID] = r.Steps[0].Evidence[0]
 	}
 	if byID["SC-1"] != "SC-1/01-hello.json" || byID["OLD-1"] != "OLD-1/01-hello.json" {
 		t.Errorf("evidence paths: %v", byID)

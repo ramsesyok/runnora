@@ -55,12 +55,38 @@ func (t *TextReporter) Write(r *Report) error {
 				// エラー詳細を 4 スペースインデントで出力する
 				_, err = fmt.Fprintf(t.w, "    Error: %s\n", res.Error)
 			}
+			if err == nil {
+				err = t.writeFailedSteps(res)
+			}
 		case res.Actual == "skipped":
 			_, err = fmt.Fprintf(t.w, "  SKIP: %s (この環境は対象外)\n", describe(res))
 		case res.Actual != "" && res.Actual != "pass":
 			_, err = fmt.Fprintf(t.w, "  PASS: %s (expected %s)\n", describe(res), res.Actual)
 		}
 		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// maxFailedSteps は FAIL の下に出す失敗したステップの最大数。
+const maxFailedSteps = 5
+
+// writeFailedSteps は失敗したステップのキーとメッセージ (1 行目) を出す。
+func (t *TextReporter) writeFailedSteps(res RunResult) error {
+	n := 0
+	for _, s := range res.Steps {
+		if s.Result != StepFailure {
+			continue
+		}
+		if n == maxFailedSteps {
+			_, err := fmt.Fprintf(t.w, "    ... (失敗したステップは report.json を参照)\n")
+			return err
+		}
+		n++
+		msg, _, _ := strings.Cut(s.Error, "\n")
+		if _, err := fmt.Fprintf(t.w, "    Step %s: %s\n", s.Key, msg); err != nil {
 			return err
 		}
 	}

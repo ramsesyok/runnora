@@ -251,3 +251,29 @@ func TestNewFileReporter_WritesToFile(t *testing.T) {
 		t.Errorf("file content wrong: %q", string(content))
 	}
 }
+
+// 失敗した runbook の下に、失敗したステップのキーとメッセージの 1 行目を最大 5 件出す。
+func TestTextReporter_WritesFailedSteps(t *testing.T) {
+	steps := []reporter.StepResult{{Key: "ok", Result: reporter.StepSuccess}}
+	for i := 0; i < 6; i++ {
+		steps = append(steps, reporter.StepResult{Key: "bad" + string(rune('a'+i)), Result: reporter.StepFailure, Error: "boom\nsecond line"})
+	}
+	steps = append(steps, reporter.StepResult{Key: "later", Result: reporter.StepNotRun})
+	r := &reporter.Report{Total: 1, Failed: 1, Results: []reporter.RunResult{
+		{ID: "S-1", Path: "a.yml", Expect: "pass", Actual: "fail", Error: "failed", Steps: steps},
+	}}
+	var buf bytes.Buffer
+	if err := reporter.NewTextReporter(&buf).Write(r); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "    Step bada: boom\n") || strings.Contains(out, "second line") {
+		t.Errorf("step line:\n%s", out)
+	}
+	if strings.Count(out, "    Step ") != 5 || !strings.Contains(out, "report.json を参照") {
+		t.Errorf("should list 5 failed steps and point to report.json:\n%s", out)
+	}
+	if strings.Contains(out, "Step ok") || strings.Contains(out, "Step later") {
+		t.Errorf("only failed steps should be listed:\n%s", out)
+	}
+}

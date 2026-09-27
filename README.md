@@ -218,7 +218,17 @@ reports/20260927-153012-scenarios/
 - 旧来の `dump` ステップ（`{{ env.RUNNORA_EVIDENCE_DIR }}` に書くもの）も動きます。runnora が runbook ごとに `RUNNORA_EVIDENCE_DIR` をそのシナリオの証跡フォルダに設定します。自動保存と重複するので、実行時と `validate` で警告します。
 - 詳細は [証跡とレポートの詳細設計](docs/design/evidence-report.md) を参照してください（ステップ単位のレポート、サマリー HTML、`diffEps()` は順次実装します）。
 
-レポートには、プロジェクト名・環境・スイート・環境の `backends` の宣言と、runbook ごとの `id` / `expect` / `actual` (`pass` / `fail` / `hookFail` / `skipped`) / `passed` (期待どおりか) を出力します。`expect: fail` や `expect: hookFail` の runbook が期待どおりに失敗した場合は合格として数えます。形式と出力先は `runnora.yaml` の `report.format` / `report.output` でも指定でき、CLI フラグを指定した場合はそちらを優先します。
+レポートには、プロジェクト名・環境・スイート・環境の `backends` の宣言と、runbook ごとの `id` / `expect` / `actual` (`pass` / `fail` / `hookFail` / `skipped`) / `passed` (期待どおりか) を出力します。`expect: fail` や `expect: hookFail` の runbook が期待どおりに失敗した場合は合格として数えます。
+
+`report.json`（と `--report-format json` の出力）には、さらに次を載せます。
+
+- runbook ごとの前後処理（`hooks`）：実行した SQL ファイルごとの成否。失敗したものは `ORA-xxxxx` を含むエラー
+- runbook ごとのステップ（`steps`）：実行順に include 先を平らに並べ、キー（`inc.call`）、番号、説明、ランナー、結果（`success` / `failure` / `skipped` / `notRun`）、所要時間、失敗メッセージ、証跡ファイル
+- 実行の開始日時と所要時間、runnora のバージョン（`schemaVersion: 2`）
+
+テキストのレポートでは、期待どおりでなかった runbook の下に、失敗したステップのキーとメッセージを最大 5 件出します。
+
+形式と出力先は `runnora.yaml` の `report.format` / `report.output` でも指定でき、CLI フラグを指定した場合はそちらを優先します。
 
 **終了コード:**
 

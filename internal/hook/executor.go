@@ -20,7 +20,21 @@ import (
 //   - exec: SQL 実行器。oracle.OracleExecutor または テスト用 stub
 //   - files: 実行する SQL/PL/SQL ファイルのパスリスト (順序が重要)
 func RunBefore(ctx context.Context, exec oracle.Executor, files []string) error {
-	return runFiles(ctx, exec, "before", files)
+	return runFiles(ctx, exec, "before", files, nil)
+}
+
+// OnFile はフックのファイルを 1 つ実行するたびに呼ばれる (レポートへの記録用)。
+// err は成功なら nil。失敗したファイルの後のファイルは実行しないので呼ばれない。
+type OnFile func(phase, file string, err error)
+
+// RunBeforeWith は RunBefore と同じく実行し、ファイルごとの結果を onFile に渡す。
+func RunBeforeWith(ctx context.Context, exec oracle.Executor, files []string, onFile OnFile) error {
+	return runFiles(ctx, exec, "before", files, onFile)
+}
+
+// RunAfterWith は RunAfter と同じく実行し、ファイルごとの結果を onFile に渡す。
+func RunAfterWith(ctx context.Context, exec oracle.Executor, files []string, onFile OnFile) error {
+	return runFiles(ctx, exec, "after", files, onFile)
 }
 
 // RunAfter は after フックのファイルリストを指定順序で順番に実行する。
@@ -36,7 +50,7 @@ func RunBefore(ctx context.Context, exec oracle.Executor, files []string) error 
 //   - exec: SQL 実行器。oracle.OracleExecutor または テスト用 stub
 //   - files: 実行する SQL/PL/SQL ファイルのパスリスト (順序が重要)
 func RunAfter(ctx context.Context, exec oracle.Executor, files []string) error {
-	return runFiles(ctx, exec, "after", files)
+	return runFiles(ctx, exec, "after", files, nil)
 }
 
 // Order は 1 つの runbook で実行する前後処理のファイル順を組み立てる。
@@ -60,9 +74,13 @@ func Order(envBefore, envAfter, scenarioBefore, scenarioAfter []string) (before,
 // エラーメッセージのフォーマット例:
 //
 //	"hook before ./sql/setup.sql: oracle: exec: ORA-00942: table or view does not exist"
-func runFiles(ctx context.Context, exec oracle.Executor, phase string, files []string) error {
+func runFiles(ctx context.Context, exec oracle.Executor, phase string, files []string, onFile OnFile) error {
 	for _, f := range files {
-		if err := exec.ExecFile(ctx, f); err != nil {
+		err := exec.ExecFile(ctx, f)
+		if onFile != nil {
+			onFile(phase, f, err)
+		}
+		if err != nil {
 			// エラーにフェーズ名とファイルパスを付加して返す。
 			// %w を使ってラップすることで、呼び出し元が errors.Is/As で原因を検査できる。
 			return fmt.Errorf("hook %s %s: %w", phase, f, err)
