@@ -46,6 +46,7 @@ runnora / oapi2wire / runnora-diff / runnora-docgen / runnora-e2e のベータ�
 | F | runnora-diff を `exec` で呼んでいる。`--scopes run:exec`、stdin 末尾の空白、CWD 基準のパス、`shell: pwsh` への依存がある | grpc-test |
 | G | 証跡のために、全 runbook に `dump` ステップと `RUNNORA_EVIDENCE_DIR` を手で書いている | e2e 全体 |
 | H | endpoint と DSN が config と runbook に直書きで、環境を切り替えられない | e2e 全体 |
+| I | リクエスト・レスポンスの雛形を runnora と oapi2wire が別々の規則で作り、置き場所も違う。仮の値が `TODO` や `0` で、proto からは作らない | `internal/generate/sample.go`、oapi2wire `internal/openapi/sample_generator.go`（詳細は [sample-generation](design/sample-generation.md)） |
 
 ## 3. ツール構成
 
@@ -323,8 +324,8 @@ frontend-mock/
 | 3 | runtime：証跡の自動保存、`diffEps()` の内蔵、ステップ単位の JSON レポート、サマリー HTML | |
 | 4 | e2e を新形式に書き直す（見本と移行の実例） | |
 | 5 | `runnora-migrate` を作り、先行チームへ適用する | |
-| 6 | 契約ケースとモック参照の統一、suite の導出、OpenAPI の静的検査 | |
+| 6 | 契約ケースとモック参照の統一、suite の導出、OpenAPI の静的検査、サンプル生成の共通化と改善（リクエスト・レスポンスを別ファイルに、制約に沿った値に） | サンプル生成は詳細設計済み（[sample-generation](design/sample-generation.md)） |
 | 7 | docgen の入力を新形式に切り替える | |
-| 8 | `generate --proto`、JSON Schema、VSCode 拡張 | |
+| 8 | `generate --proto`（proto からリクエスト・期待値の雛形を生成）、JSON Schema、VSCode 拡張 | proto のサンプル生成は詳細設計済み（[sample-generation](design/sample-generation.md)） |
 
 優先順位は、先行チーム（手書きシナリオ中心）に効く 2・3 を先にし、契約テスト周りの 6 を後にしている。
