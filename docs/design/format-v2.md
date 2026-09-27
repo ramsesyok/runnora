@@ -39,19 +39,7 @@ runn v1.9.2（runnora が使っている版）のソースと、実際の動作�
 
 ## 3. ファイル構成とパスの基準
 
-```text
-project/                     ← プロジェクトルート（runnora.yaml のある場所）
-├─ runnora.yaml
-├─ openapi/  proto/
-├─ runbooks/
-│  ├─ generated/            generate の出力（再生成される）
-│  ├─ contract/
-│  └─ scenarios/            runnora: ブロックを持つシナリオ
-├─ cases/  fixtures/
-└─ sql/
-   ├─ common/
-   └─ cases/
-```
+プロジェクトのファイル構成は [連携設計の 5.4](../integration-design.md#54-テストプロジェクトのファイル構成) に定める。この文書で扱うのは、そのうち `runnora.yaml`、`runbooks/`、`sql/` に関わる部分である。
 
 ### パスの基準
 
