@@ -85,7 +85,7 @@ func TestBuildTemplateContentAddsQueryString(t *testing.T) {
 	}
 
 	got := buildTemplateContent(op, "req")
-	want := yamlScalar("/pet/findByStatus?status={{ vars.case.queryParams.status }}") + ":"
+	want := `"/pet/findByStatus?status={{ vars.case.queryParams.status }}":`
 	if !strings.Contains(got, want) {
 		t.Fatalf("template path does not contain query parameter %q:\n%s", want, got)
 	}
@@ -142,12 +142,14 @@ func TestRequestBodyOnlyWhenOperationDefinesOne(t *testing.T) {
 		hasRequestBody bool
 		sample         interface{}
 		wantBody       bool
-		wantCaseBody   interface{}
+		// wantEmptyBody は requestBody のない POST/PUT に空の本文を送ること (runn は body を必須とする)
+		wantEmptyBody bool
+		wantCaseBody  interface{}
 	}{
-		{name: "POST without requestBody", method: "post", hasRequestBody: false, wantBody: false, wantCaseBody: nil},
+		{name: "POST without requestBody", method: "post", hasRequestBody: false, wantEmptyBody: true, wantCaseBody: nil},
 		{name: "POST with requestBody and sample", method: "post", hasRequestBody: true, sample: map[string]interface{}{"name": "x"}, wantBody: true, wantCaseBody: map[string]interface{}{"name": "x"}},
 		{name: "POST with requestBody but no sample", method: "post", hasRequestBody: true, wantBody: true, wantCaseBody: map[string]interface{}{"TODO": "fill in request body"}},
-		{name: "PUT without requestBody", method: "put", hasRequestBody: false, wantBody: false, wantCaseBody: nil},
+		{name: "PUT without requestBody", method: "put", hasRequestBody: false, wantEmptyBody: true, wantCaseBody: nil},
 		{name: "GET with requestBody", method: "get", hasRequestBody: true, wantBody: false, wantCaseBody: nil},
 	}
 	for _, tt := range tests {
@@ -164,8 +166,11 @@ func TestRequestBodyOnlyWhenOperationDefinesOne(t *testing.T) {
 			}
 
 			template := buildTemplateContent(op, "req")
-			if got := strings.Contains(template, "          body:\n"); got != tt.wantBody {
+			if got := strings.Contains(template, "application/json: \"{{ vars.case.requestBody }}\""); got != tt.wantBody {
 				t.Errorf("template has body = %v, want %v:\n%s", got, tt.wantBody, template)
+			}
+			if got := strings.Contains(template, "          body:\n            text/plain: \"\"\n"); got != tt.wantEmptyBody {
+				t.Errorf("template has empty body = %v, want %v:\n%s", got, tt.wantEmptyBody, template)
 			}
 
 			caseBody := buildCaseData(op).RequestBody
@@ -322,5 +327,24 @@ func TestEmitSuite_SelectableBySuite(t *testing.T) {
 				t.Fatalf("selected %d runbooks: %+v", len(rbs), rbs)
 			}
 		})
+	}
+}
+
+// クエリ文字列の & は \u0026 にせずそのまま書く (runn は include 先で \u0026 を & に戻さない)。
+func TestYAMLScalarKeepsAmpersand(t *testing.T) {
+	tests := []struct{ in, want string }{
+		{in: "/books?genre={{ vars.case.queryParams.genre }}&availableOnly=1", want: `"/books?genre={{ vars.case.queryParams.genre }}&availableOnly=1"`},
+		{in: `a "b" <c>`, want: `"a \"b\" <c>"`},
+		{in: "line\nnext", want: `"line\nnext"`},
+	}
+	for _, tt := range tests {
+		got := yamlScalar(tt.in)
+		if got != tt.want {
+			t.Errorf("yamlScalar(%q) = %s, want %s", tt.in, got, tt.want)
+		}
+		var back string
+		if err := yaml.Unmarshal([]byte(got), &back); err != nil || back != tt.in {
+			t.Errorf("yamlScalar(%q) does not round-trip: %q, %v", tt.in, back, err)
+		}
 	}
 }

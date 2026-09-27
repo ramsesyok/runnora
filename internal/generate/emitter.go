@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -87,7 +88,12 @@ func buildTemplateContent(op *OperationInfo, runnerName string) string {
 	sb.WriteString("        " + op.Method + ":\n")
 	sb.WriteString("          headers: \"{{ vars.case.headers }}\"\n")
 
-	// request body は requestBody を定義した POST/PUT/PATCH のみ
+	// request body は requestBody を定義した POST/PUT/PATCH のみ。
+	// requestBody のない POST/PUT/PATCH も runn は body を必須とするので、空の本文を送る。
+	if hasRequestBody(op.Method) && !sendsRequestBody(op) {
+		sb.WriteString("          body:\n")
+		sb.WriteString("            text/plain: \"\"\n")
+	}
 	if sendsRequestBody(op) {
 		sb.WriteString("          body:\n")
 		if op.RequestBodyContentType == "multipart/form-data" {
@@ -111,9 +117,13 @@ func normalizeYAMLPath(path string) string {
 }
 
 // JSON strings are valid YAML double-quoted scalars and cannot add YAML keys.
+// & < > は \u0026 などにしない (runn がクエリ文字列の \u0026 を & に戻さないため)。
 func yamlScalar(value string) string {
-	b, _ := json.Marshal(value)
-	return string(b)
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	_ = enc.Encode(value)
+	return strings.TrimSuffix(buf.String(), "\n")
 }
 
 // EmitCase は default case JSON ファイルを生成して書き出す。
