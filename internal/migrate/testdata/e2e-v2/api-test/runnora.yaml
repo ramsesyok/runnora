@@ -1,0 +1,66 @@
+# runnora のプロジェクトファイル (runnora-migrate で config.yaml / config.mock.yaml から移行し、手で整えたもの)。
+# パスはこのファイルのあるディレクトリ (api-test/) を基準にする。
+version: 2
+
+project:
+  name: "runnora-e2e"
+
+defaults:
+  env: "unit"
+
+environments:
+  unit:
+    description: 実 API (Go + Oracle)。runbook ごとにデータを初期化し、DB の不変条件を検証する
+    vars:
+      API_URL: "http://127.0.0.1:18081"            # シナリオ試験の接続先
+      RUNNORA_BASE_URL: "http://127.0.0.1:18081"   # 生成・契約テストの template の接続先
+      # ローカル検証用コンテナ (docker-compose.yml) の DSN。パスワードは OS の環境変数 LIBAPP_PASSWORD で上書きできる
+      ORACLE_DSN: "oracle://libapp:${LIBAPP_PASSWORD:-libapp_pw}@127.0.0.1:1522/FREEPDB1"
+    oracle:
+      dsn: "${ORACLE_DSN}"
+      max_open_conns: 5
+      max_idle_conns: 2
+      conn_max_lifetime_sec: 300
+    hooks:
+      before:
+        - "sql/common/00_reset.sql"
+        - "sql/common/10_seed_master.sql"
+      after:
+        - "sql/common/90_verify_integrity.sql"
+  mock:
+    description: WireMock (oapi2wire 生成モック)。DB は使わない
+    vars:
+      API_URL: "http://127.0.0.1:18080"
+      RUNNORA_BASE_URL: "http://127.0.0.1:18080"
+
+suites:
+  # OpenAPI から生成した suite (runbooks/generated/。runnora generate が作り、手で編集しない)
+  generated-mock:
+    env: mock
+    select:
+      paths: [runbooks/generated/**/*.suite.yml]
+  generated-unit:
+    env: unit
+    select:
+      paths: [runbooks/generated/**/*.suite.yml]
+    hooks:
+      before: [sql/cases/contract_setup.sql]
+  # 契約テスト (runbooks/contract/)。モックと実 API の両方で流す。実 API では契約用のデータを入れる
+  contract-mock:
+    env: mock
+    select:
+      paths: [runbooks/contract/*.suite.yml]
+  contract-unit:
+    env: unit
+    select:
+      paths: [runbooks/contract/*.suite.yml]
+    hooks:
+      before: [sql/cases/contract_setup.sql]
+  # シナリオ試験 LIB-001〜007 と、事後検証が DB 不整合を検知することのデモ (expect: hookFail)
+  scenarios:
+    env: unit
+    select:
+      paths: [runbooks/scenarios/*.yml, runbooks/demo/*.yml]
+
+report:
+  format: "text"

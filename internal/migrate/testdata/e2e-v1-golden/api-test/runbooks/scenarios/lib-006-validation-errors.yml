@@ -25,10 +25,6 @@ steps:
             application/json:
               memberId: M0003
               bookId: B0001
-  dump_suspended_member:
-    dump:
-      expr: steps.suspended_member.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/suspended_member.json'
   check_suspended_member:
     test: |
       steps.suspended_member.res.status == 409 &&
@@ -45,10 +41,6 @@ steps:
             application/json:
               memberId: M9999
               bookId: B0001
-  dump_unknown_member:
-    dump:
-      expr: steps.unknown_member.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/unknown_member.json'
   check_unknown_member:
     test: |
       steps.unknown_member.res.status == 404 &&
@@ -65,10 +57,6 @@ steps:
             application/json:
               memberId: M0001
               bookId: B9999
-  dump_unknown_book:
-    dump:
-      expr: steps.unknown_book.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/unknown_book.json'
   check_unknown_book:
     test: |
       steps.unknown_book.res.status == 404 &&
@@ -84,10 +72,6 @@ steps:
           body:
             application/json:
               memberId: M0001
-  dump_missing_book_id:
-    dump:
-      expr: steps.missing_book_id.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/missing_book_id.json'
   check_missing_book_id:
     test: |
       steps.missing_book_id.res.status == 400 &&
@@ -106,10 +90,6 @@ steps:
               memberId: M0001
               bookId: B0001
               days: 30
-  dump_unknown_field:
-    dump:
-      expr: steps.unknown_field.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/unknown_field.json'
   check_unknown_field:
     test: |
       steps.unknown_field.res.status == 400 &&
@@ -130,10 +110,6 @@ steps:
               author: 試験 花子
               genre: TECH
               totalCopies: 1
-  dump_invalid_isbn:
-    dump:
-      expr: steps.invalid_isbn.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/invalid_isbn.json'
   check_invalid_isbn:
     test: |
       steps.invalid_isbn.res.status == 400 &&
@@ -154,10 +130,6 @@ steps:
               author: 試験 花子
               genre: TECH
               totalCopies: 0
-  dump_invalid_copies:
-    dump:
-      expr: steps.invalid_copies.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/invalid_copies.json'
   check_invalid_copies:
     test: |
       steps.invalid_copies.res.status == 400 &&
@@ -171,10 +143,6 @@ steps:
           headers:
             X-Test-Scenario: LIB-006
           body: null
-  dump_invalid_genre:
-    dump:
-      expr: steps.invalid_genre.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/invalid_genre.json'
   check_invalid_genre:
     test: |
       steps.invalid_genre.res.status == 400 &&
@@ -188,10 +156,6 @@ steps:
           headers:
             X-Test-Scenario: LIB-006
           body: null
-  dump_invalid_status_filter:
-    dump:
-      expr: steps.invalid_status_filter.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/invalid_status_filter.json'
   check_invalid_status_filter:
     test: steps.invalid_status_filter.res.status == 400
 
@@ -204,10 +168,6 @@ steps:
             X-Test-Scenario: LIB-006
           body:
             application/json: {}
-  dump_unknown_loan:
-    dump:
-      expr: steps.unknown_loan.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/unknown_loan.json'
   check_unknown_loan:
     test: |
       steps.unknown_loan.res.status == 404 &&

@@ -23,10 +23,6 @@ steps:
     greq:
       sample.library.v1.LibraryService/GetBook:
         message: "{{ vars.get_request }}"
-  dump_get_book:
-    dump:
-      expr: steps.get_book.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/server-streaming-get_book.json'
   check_get_book:
     test: |
       steps.get_book.res.status == vars.get_expected.status &&
@@ -41,10 +37,6 @@ steps:
     greq:
       sample.library.v1.LibraryService/ListBooks:
         message: "{{ vars.list_request }}"
-  dump_list_books:
-    dump:
-      expr: steps.list_books.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/server-streaming-list_books.json'
   check_list_books:
     test: |
       steps.list_books.res.status == vars.list_expected.status &&

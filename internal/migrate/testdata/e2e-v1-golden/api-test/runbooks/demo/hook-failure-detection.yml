@@ -24,10 +24,6 @@ steps:
           headers:
             X-Test-Scenario: DEMO
           body: null
-  dump_health:
-    dump:
-      expr: steps.health.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/health.json'
   check_health:
     test: |
       steps.health.res.status == 200 &&

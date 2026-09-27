@@ -1,0 +1,31 @@
+desc: 計算結果を逐次配信し、最後のメッセージだけに集計結果を含める
+runnora:
+  id: GRPC-calculation-streaming
+labels:
+  - grpc
+  - server-streaming
+  - optional
+vars:
+  request: json://../cases/calculation-streaming/request.json
+  expected: json://../cases/calculation-streaming/expected.json
+runners:
+  greq:
+    addr: ${GRPC_ADDR}
+    tls: false
+    importPaths:
+      - ../proto
+    protos:
+      - ../proto/library.proto
+steps:
+  calculate:
+    desc: 各回の累計を受け取り、最終回だけcompletionがあることを確認する
+    greq:
+      sample.library.v1.LibraryService/Calculate:
+        message: "{{ vars.request }}"
+  check_calculate:
+    test: |
+      steps.calculate.res.status == vars.expected.status &&
+      steps.calculate.res.messages[0].completion == nil &&
+      steps.calculate.res.messages[1].completion == nil &&
+      steps.calculate.res.messages[2].completion != nil &&
+      compare(steps.calculate.res.messages, vars.expected.messages)

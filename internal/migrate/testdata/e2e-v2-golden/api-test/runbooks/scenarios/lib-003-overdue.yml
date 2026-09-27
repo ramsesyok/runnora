@@ -1,0 +1,160 @@
+desc: LIB-003 延滞中の会員は借りられず、返却すると借りられる
+runnora:
+  id: LIB-003
+  before:
+    - sql/cases/lib003_overdue_before.sql
+# 実行: runnora run <this> (前後処理は上の runnora: ブロック。スイートでまとめて流すときは runnora run --suite scenarios)
+# 前処理で「M0002 が B0004 を 21 日前に借りて未返却 (期限 7 日前)」の貸出を作る。
+# 貸出 ID・蔵書 ID は固定値で書かず、貸出中一覧の応答から「返却期限が本日より前の貸出」を探して引き継ぐ。
+labels:
+  - scenario
+  - loans
+  - plsql-setup
+runners:
+  req:
+    endpoint: ${API_URL}
+    # 応答を OpenAPI 定義で自動検証する。異常系の入力を送るためリクエスト側の検証は行わない
+    openapi3: ../../openapi/library-api.yaml
+    skipValidateRequest: true
+steps:
+  member_overdue:
+    desc: 前処理で作った延滞により、M0002が延滞ありと表示されることを確認する
+    req:
+      /members/M0002:
+        get:
+          headers:
+            X-Test-Scenario: LIB-003
+          body: null
+  check_member_overdue:
+    test: |
+      steps.member_overdue.res.status == 200 &&
+      steps.member_overdue.res.body.activeLoanCount == 1 &&
+      steps.member_overdue.res.body.overdue == true
+
+  active_loans:
+    desc: 貸出中一覧に、返却期限が本日より前の貸出がちょうど1件あることを確認する
+    req:
+      /members/M0002/loans?status=ACTIVE:
+        get:
+          headers:
+            X-Test-Scenario: LIB-003
+          body: null
+  check_active_loans:
+    test: |
+      steps.active_loans.res.status == 200 &&
+      len(filter(steps.active_loans.res.body.items, date(.dueDate) < now())) == 1
+
+  save_overdue_loan:
+    desc: 延滞している貸出の貸出IDと蔵書IDを保存する
+    bind:
+      overdue_loan_id: filter(steps.active_loans.res.body.items, date(.dueDate) < now())[0].loanId
+      overdue_book_id: filter(steps.active_loans.res.body.items, date(.dueDate) < now())[0].bookId
+  book_lent:
+    desc: 保存した蔵書IDで照会し、延滞中の本の貸出可能冊数が0であることを確認する
+    req:
+      /books/{{ overdue_book_id }}:
+        get:
+          headers:
+            X-Test-Scenario: LIB-003
+          body: null
+  check_book_lent:
+    test: |
+      steps.book_lent.res.status == 200 &&
+      steps.book_lent.res.body.bookId == overdue_book_id &&
+      steps.book_lent.res.body.availableCopies == 0
+
+  loan_rejected:
+    desc: 延滞中のM0002が別の本B0001を借りようとすると409 OVERDUE_LOANになる
+    req:
+      /loans:
+        post:
+          headers:
+            X-Test-Scenario: LIB-003
+          body:
+            application/json:
+              memberId: M0002
+              bookId: B0001
+  check_loan_rejected:
+    test: |
+      steps.loan_rejected.res.status == 409 &&
+      steps.loan_rejected.res.body.code == "OVERDUE_LOAN"
+
+  return_overdue:
+    desc: 保存した貸出IDで延滞している貸出を返却し、応答の貸出・蔵書が保存した値と一致することを確認する
+    req:
+      /loans/{{ overdue_loan_id }}/return:
+        post:
+          headers:
+            X-Test-Scenario: LIB-003
+          body:
+            application/json: {}
+  check_return_overdue:
+    test: |
+      steps.return_overdue.res.status == 200 &&
+      steps.return_overdue.res.body.loanId == overdue_loan_id &&
+      steps.return_overdue.res.body.bookId == overdue_book_id &&
+      steps.return_overdue.res.body.status == "RETURNED" &&
+      steps.return_overdue.res.body.returnedAt != nil
+
+  book_returned:
+    desc: 保存した蔵書IDで照会し、返却で貸出可能冊数が1冊に戻ったことを確認する
+    req:
+      /books/{{ overdue_book_id }}:
+        get:
+          headers:
+            X-Test-Scenario: LIB-003
+          body: null
+  check_book_returned:
+    test: |
+      steps.book_returned.res.status == 200 &&
+      steps.book_returned.res.body.availableCopies == 1
+
+  member_cleared:
+    desc: 返却後は延滞なし・貸出0件になることを確認する
+    req:
+      /members/M0002:
+        get:
+          headers:
+            X-Test-Scenario: LIB-003
+          body: null
+  check_member_cleared:
+    test: |
+      steps.member_cleared.res.status == 200 &&
+      steps.member_cleared.res.body.activeLoanCount == 0 &&
+      steps.member_cleared.res.body.overdue == false
+
+  loan_ok:
+    desc: 延滞が解消したのでB0001を借りられる。新しい貸出IDは返却した貸出と異なる
+    req:
+      /loans:
+        post:
+          headers:
+            X-Test-Scenario: LIB-003
+          body:
+            application/json:
+              memberId: M0002
+              bookId: B0001
+  check_loan_ok:
+    test: |
+      steps.loan_ok.res.status == 201 &&
+      steps.loan_ok.res.body.bookId == "B0001" &&
+      steps.loan_ok.res.body.loanId != overdue_loan_id
+
+  save_new_loan:
+    desc: 新しい貸出IDを保存する
+    bind:
+      new_loan_id: steps.loan_ok.res.body.loanId
+  loan_history:
+    desc: 貸出履歴に、返却済みの延滞貸出と貸出中の新しい貸出の両方が記録されていることを確認する
+    req:
+      /members/M0002/loans:
+        get:
+          headers:
+            X-Test-Scenario: LIB-003
+          body: null
+  check_loan_history:
+    test: |
+      steps.loan_history.res.status == 200 &&
+      steps.loan_history.res.body.total == 2 &&
+      filter(steps.loan_history.res.body.items, .loanId == overdue_loan_id)[0].status == "RETURNED" &&
+      filter(steps.loan_history.res.body.items, .loanId == new_loan_id)[0].status == "ACTIVE"

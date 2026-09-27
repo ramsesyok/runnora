@@ -2,6 +2,8 @@
 
 `runnora-migrate` は、旧形式（runnora `v0.3.0` まで。`config.yaml`・`--config`・`--before-sql` / `--after-sql`）で作ったテストプロジェクトを、新形式（`runnora.yaml` と runbook の `runnora:` ブロック）に移行する使い捨てのツールです。移行が済んだら使いません（runnora 本体のサブコマンドにはしていません）。
 
+新形式（`runnora.yaml` がある）のプロジェクトに使うと、証跡の自動保存と `diffEps()` に合わせた runbook の書き換え（後述）だけを行います。
+
 新形式の仕様は [新形式 (v2) 詳細設計](design/format-v2.md) を参照してください。
 
 ## インストール
@@ -50,12 +52,45 @@ runnora-migrate [options] [dir]
 | スクリプトが環境変数で渡していた値（`RUNNORA_BASE_URL` など） | 環境の `vars` | 対応表から |
 | スクリプトで runbook をまとめて実行していた単位 | `runnora.yaml` の `suites` | 対応表から |
 | スクリプトの `--config` / `--before-sql` / `--after-sql` / `--scopes`、runbook のコメントにある旧形式の実行方法 | ― | TODO として報告 |
+| `RUNNORA_EVIDENCE_DIR` の下に書く `dump` ステップ | 削除（応答は runnora が証跡として自動で保存する） | 自動 |
+| `exec` で runnora-diff を呼んで比較するステップ | `test: diffEps(...)`（期待ファイルは `vars` に `json://` で追加） | 自動（形が合わないものは TODO） |
+| スクリプトで `RUNNORA_EVIDENCE_DIR` を設定する処理、`diffEps()` に置き換えた後の runnora-diff のビルド | ― | TODO として報告（ファイルごとに 1 件） |
 | `runbooks/generated/` | ― | 移行しない（新しい runnora で再生成する） |
 | `mock-cases.yaml` と応答 JSON | ― | 変更しない |
 
 runbook は文字列として書き換えるので、コメントや書式、改行コード（CRLF を含む）はそのまま残ります。
 
-runnora の実施順 3（証跡の自動保存、runnora-diff の組み込み関数）の実装後に、`dump` ステップの削除と `exec: runnora-diff` の置き換えを追加する予定です。それまでは、これらは旧形式のまま動きます。
+### 証跡の dump ステップと runnora-diff の書き換え
+
+runnora は HTTP・gRPC・DB・exec の各ステップの応答を証跡として自動で保存し、runnora-diff と同じ比較を `diffEps()` で行えます（[証跡とレポートの詳細設計](design/evidence-report.md)）。そこで、次の書き換えを行います（旧形式のプロジェクトでは、上の移行に続けて行います）。
+
+**`dump` ステップの削除:** `dump` の `out` が `RUNNORA_EVIDENCE_DIR` を含み、ステップに `dump`・`desc`・`if` 以外のキーがなく、ほかのステップから参照されていないものを削除します。次のものは残して TODO として報告します。
+
+- 出力先が `RUNNORA_EVIDENCE_DIR` の下ではない `dump`（証跡以外の目的の可能性があるため）
+- `dump` と一緒に `test` などがあるステップ
+- リスト形式の `steps`（削除すると `steps[n]` の番号がずれるため）
+
+**runnora-diff の `diffEps()` への置き換え:** 次の形の `exec` ステップを、`test: diffEps(...)` 1 行にします。
+
+```yaml
+# 変更前
+compare_with_epsilon:
+  exec:
+    command: ./bin/runnora-diff.exe --config cases/series-analysis/tolerances.yaml cases/series-analysis/expected.json -
+    shell: pwsh -NoProfile -Command {0}
+    stdin: '{{ toJSON(steps.analyze_series.res.message) }} '
+  test: current.stdout == "" && current.stderr == "" && current.exit_code == 0
+
+# 変更後 (vars に expected: json://../cases/series-analysis/expected.json を追加)
+compare_with_epsilon:
+  test: 'diffEps(vars.expected, steps.analyze_series.res.message, "cases/series-analysis/tolerances.yaml")'
+```
+
+- `command` の実行ファイル名が `runnora-diff` か `jsondiff-eps`（パスや `.exe` は問わない）で、引数が `[--format 形式] [--config 設定] 期待ファイル -` の形のもの。
+- `stdin` が `{{ toJSON(<式>) }}` の形のもの。`<式>` を `diffEps()` の実際の値にします。
+- `test` が終了コード（`current.exit_code == 0` / `== 1` / `!= 0`）、`summary.differences`、`equal`、空の `stdout` / `stderr` だけを `&&` でつないだもの。差分がないことを期待していれば `diffEps(...)`、差分があることを期待していれば `!diffEps(...)` にします。
+- ファイルのパスは、`exec` がプロジェクトルートで実行されていた前提で読みます。期待ファイルは runbook からの相対パスで `vars` に追加し（同じファイルの変数があれば使い回す。名前は `expected`、使われていれば `expected2` …）、`--config` はプロジェクトルート基準のまま `diffEps()` に渡します。
+- `desc` と `if` は残します。ほかのキー（`loop` など）、ほかのオプション（`--ignore` など）、変数や式を使ったパスがあるもの、`vars` がフロー形式（`vars: {}`）のものは、変更せずに TODO として報告します。
 
 ## シナリオ対応表
 
@@ -97,9 +132,11 @@ suites:                                   # runnora.yaml の suites にそのま
 
 ## 実例
 
-runnora-e2e のタグ `format-v1`（旧形式のサンプル）を移行した入力・対応表・結果を、ゴールデンテストのデータとして `internal/migrate/testdata/` に置いています。
+runnora-e2e のタグ `format-v1`（旧形式のサンプル）と、証跡の自動保存より前の新形式を移行した入力・対応表・結果を、ゴールデンテストのデータとして `internal/migrate/testdata/` に置いています。
 
 | ディレクトリ | 内容 |
 |---|---|
 | `testdata/e2e-v1/` | 入力（`config*.yaml`・`runbooks/`・`scripts/` と、人が書いた `migrate-scenarios.yaml`） |
 | `testdata/e2e-v1-golden/` | 移行後に作成・変更されたファイルと、実行結果のレポート（`MIGRATION_REPORT.txt`） |
+| `testdata/e2e-v2/` | 新形式の入力（`runnora.yaml`・`runbooks/`・`scripts/`。`dump` ステップと `exec: runnora-diff` を含む） |
+| `testdata/e2e-v2-golden/` | 書き換えた runbook と、実行結果のレポート |

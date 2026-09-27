@@ -1,0 +1,111 @@
+desc: LIB-007 BULK COLLECT/FORALLで投入した大量の貸出履歴を照会する
+runnora:
+  id: LIB-007
+  before:
+    - sql/cases/lib007_history_before.sql
+# 実行: runnora run <this> (前後処理は上の runnora: ブロック。スイートでまとめて流すときは runnora run --suite scenarios)
+# 前処理で M0004 に B0005〜B0020 の返却済み貸出 16 件 (loan 1〜16) を投入する
+labels:
+  - scenario
+  - members
+  - plsql-setup
+runners:
+  req:
+    endpoint: ${API_URL}
+    # 応答を OpenAPI 定義で自動検証する。異常系の入力を送るためリクエスト側の検証は行わない
+    openapi3: ../../openapi/library-api.yaml
+    skipValidateRequest: true
+  db: ${ORACLE_DSN}
+steps:
+  returned_history:
+    desc: M0004の返却済み履歴が16件、貸出ID順に並んでいることを確認する
+    req:
+      /members/M0004/loans?status=RETURNED:
+        get:
+          headers:
+            X-Test-Scenario: LIB-007
+          body: null
+  check_returned_history:
+    test: |
+      steps.returned_history.res.status == 200 &&
+      steps.returned_history.res.body.total == 16 &&
+      steps.returned_history.res.body.items[0].loanId == 1 &&
+      steps.returned_history.res.body.items[0].bookId == "B0005" &&
+      steps.returned_history.res.body.items[15].loanId == 16 &&
+      steps.returned_history.res.body.items[15].bookId == "B0020" &&
+      all(steps.returned_history.res.body.items, .returnedAt != nil)
+
+  inspect_history_book_0:
+    desc: 履歴の先頭1件目の蔵書を照会する
+    include:
+      path: ./lib-007-inspect-history-book.yml
+      vars:
+        index: 0
+        book_id: '{{ steps.returned_history.res.body.items[0].bookId }}'
+  inspect_history_book_1:
+    desc: 履歴の先頭2件目の蔵書を照会する
+    include:
+      path: ./lib-007-inspect-history-book.yml
+      vars:
+        index: 1
+        book_id: '{{ steps.returned_history.res.body.items[1].bookId }}'
+  inspect_history_book_2:
+    desc: 履歴の先頭3件目の蔵書を照会する
+    include:
+      path: ./lib-007-inspect-history-book.yml
+      vars:
+        index: 2
+        book_id: '{{ steps.returned_history.res.body.items[2].bookId }}'
+  no_active:
+    desc: 貸出中の履歴は0件である
+    req:
+      /members/M0004/loans?status=ACTIVE:
+        get:
+          headers:
+            X-Test-Scenario: LIB-007
+          body: null
+  check_no_active:
+    test: |
+      steps.no_active.res.status == 200 &&
+      steps.no_active.res.body.total == 0
+
+  member_clean:
+    desc: 返却済みの貸出は期限を過ぎていても延滞にならない
+    req:
+      /members/M0004:
+        get:
+          headers:
+            X-Test-Scenario: LIB-007
+          body: null
+  check_member_clean:
+    test: |
+      steps.member_clean.res.status == 200 &&
+      steps.member_clean.res.body.activeLoanCount == 0 &&
+      steps.member_clean.res.body.overdue == false
+
+  loan_after_history:
+    desc: 履歴が多くても新規貸出でき、貸出IDは17になる
+    req:
+      /loans:
+        post:
+          headers:
+            X-Test-Scenario: LIB-007
+          body:
+            application/json:
+              memberId: M0004
+              bookId: B0005
+  check_loan_after_history:
+    test: |
+      steps.loan_after_history.res.status == 201 &&
+      steps.loan_after_history.res.body.loanId == 17
+
+  db_batch_log:
+    desc: 前処理がBULK COLLECT LIMIT 5で4バッチに分けて投入したことをログで確認する
+    db:
+      query: |
+        SELECT message
+          FROM test_hook_log
+         WHERE hook_name = 'cases/lib007_history'
+         ORDER BY log_id DESC
+         FETCH FIRST 1 ROWS ONLY
+    test: current.rows[0].MESSAGE == "batches=4, rows=16"

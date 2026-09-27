@@ -25,10 +25,6 @@ steps:
           headers:
             X-Test-Scenario: LIB-007
           body: null
-  dump_returned_history:
-    dump:
-      expr: steps.returned_history.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/returned_history.json'
   check_returned_history:
     test: |
       steps.returned_history.res.status == 200 &&
@@ -68,10 +64,6 @@ steps:
           headers:
             X-Test-Scenario: LIB-007
           body: null
-  dump_no_active:
-    dump:
-      expr: steps.no_active.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/no_active.json'
   check_no_active:
     test: |
       steps.no_active.res.status == 200 &&
@@ -85,10 +77,6 @@ steps:
           headers:
             X-Test-Scenario: LIB-007
           body: null
-  dump_member_clean:
-    dump:
-      expr: steps.member_clean.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/member_clean.json'
   check_member_clean:
     test: |
       steps.member_clean.res.status == 200 &&
@@ -106,10 +94,6 @@ steps:
             application/json:
               memberId: M0004
               bookId: B0005
-  dump_loan_after_history:
-    dump:
-      expr: steps.loan_after_history.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/loan_after_history.json'
   check_loan_after_history:
     test: |
       steps.loan_after_history.res.status == 201 &&

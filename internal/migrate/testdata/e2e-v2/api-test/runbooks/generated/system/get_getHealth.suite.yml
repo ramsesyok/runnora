@@ -1,0 +1,23 @@
+desc: "稼働状態を確認する suite"
+runnora:
+  id: "GEN-getHealth"
+labels:
+  - generated
+  - openapi
+  - "system"
+  - method:get
+  - "operation:getHealth"
+  - mode:suite
+
+vars:
+  cases:
+    - "json://../../../cases/generated/system/get_getHealth/default.json"
+
+steps:
+  run_case:
+    loop:
+      count: len(vars.cases)
+    include:
+      path: "./get_getHealth.template.yml"
+      vars:
+        case: "{{ vars.cases[i] }}"

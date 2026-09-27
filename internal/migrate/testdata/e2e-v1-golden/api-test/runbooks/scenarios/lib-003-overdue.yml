@@ -25,10 +25,6 @@ steps:
           headers:
             X-Test-Scenario: LIB-003
           body: null
-  dump_member_overdue:
-    dump:
-      expr: steps.member_overdue.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/member_overdue.json'
   check_member_overdue:
     test: |
       steps.member_overdue.res.status == 200 &&
@@ -43,10 +39,6 @@ steps:
           headers:
             X-Test-Scenario: LIB-003
           body: null
-  dump_active_loans:
-    dump:
-      expr: steps.active_loans.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/active_loans.json'
   check_active_loans:
     test: |
       steps.active_loans.res.status == 200 &&
@@ -65,10 +57,6 @@ steps:
           headers:
             X-Test-Scenario: LIB-003
           body: null
-  dump_book_lent:
-    dump:
-      expr: steps.book_lent.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/book_lent.json'
   check_book_lent:
     test: |
       steps.book_lent.res.status == 200 &&
@@ -86,10 +74,6 @@ steps:
             application/json:
               memberId: M0002
               bookId: B0001
-  dump_loan_rejected:
-    dump:
-      expr: steps.loan_rejected.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/loan_rejected.json'
   check_loan_rejected:
     test: |
       steps.loan_rejected.res.status == 409 &&
@@ -104,10 +88,6 @@ steps:
             X-Test-Scenario: LIB-003
           body:
             application/json: {}
-  dump_return_overdue:
-    dump:
-      expr: steps.return_overdue.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/return_overdue.json'
   check_return_overdue:
     test: |
       steps.return_overdue.res.status == 200 &&
@@ -124,10 +104,6 @@ steps:
           headers:
             X-Test-Scenario: LIB-003
           body: null
-  dump_book_returned:
-    dump:
-      expr: steps.book_returned.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/book_returned.json'
   check_book_returned:
     test: |
       steps.book_returned.res.status == 200 &&
@@ -141,10 +117,6 @@ steps:
           headers:
             X-Test-Scenario: LIB-003
           body: null
-  dump_member_cleared:
-    dump:
-      expr: steps.member_cleared.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/member_cleared.json'
   check_member_cleared:
     test: |
       steps.member_cleared.res.status == 200 &&
@@ -162,10 +134,6 @@ steps:
             application/json:
               memberId: M0002
               bookId: B0001
-  dump_loan_ok:
-    dump:
-      expr: steps.loan_ok.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/loan_ok.json'
   check_loan_ok:
     test: |
       steps.loan_ok.res.status == 201 &&
@@ -184,10 +152,6 @@ steps:
           headers:
             X-Test-Scenario: LIB-003
           body: null
-  dump_loan_history:
-    dump:
-      expr: steps.loan_history.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/loan_history.json'
   check_loan_history:
     test: |
       steps.loan_history.res.status == 200 &&

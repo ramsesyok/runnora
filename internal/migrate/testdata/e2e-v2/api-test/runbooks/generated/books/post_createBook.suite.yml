@@ -1,0 +1,23 @@
+desc: "蔵書を登録する suite"
+runnora:
+  id: "GEN-createBook"
+labels:
+  - generated
+  - openapi
+  - "books"
+  - method:post
+  - "operation:createBook"
+  - mode:suite
+
+vars:
+  cases:
+    - "json://../../../cases/generated/books/post_createBook/default.json"
+
+steps:
+  run_case:
+    loop:
+      count: len(vars.cases)
+    include:
+      path: "./post_createBook.template.yml"
+      vars:
+        case: "{{ vars.cases[i] }}"

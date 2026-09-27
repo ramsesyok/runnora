@@ -1,0 +1,29 @@
+desc: "本を返却する template"
+labels:
+  - generated
+  - openapi
+  - "loans"
+  - method:post
+  - "operation:returnLoan"
+  - mode:template
+
+runners:
+  "req":
+    endpoint: ${RUNNORA_BASE_URL}
+
+vars:
+  case: {}
+
+steps:
+  call_api:
+    "req":
+      "/loans/{{ vars.case.pathParams.loanId }}/return":
+        post:
+          headers: "{{ vars.case.headers }}"
+
+  dump_response:
+    dump:
+      expr: steps.call_api.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/post_returnLoan-{{ vars.case.name }}.json'
+  check_response:
+    test: steps.call_api.res.status == vars.case.expect.status

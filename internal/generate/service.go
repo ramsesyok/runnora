@@ -10,7 +10,7 @@ import (
 
 // GenerateResult は generate コマンドの実行結果サマリーを保持する。
 type GenerateResult struct {
-	Total    int // 対象 operation 数
+	Total     int // 対象 operation 数
 	Generated int // 生成した operation 数
 	Skipped   int // スキップした operation 数 (既存ファイルあり、または deprecated)
 	Warnings  int // 警告数

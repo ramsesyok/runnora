@@ -17,28 +17,33 @@ import (
 // 作り直した結果は、必ず差分をレビューしてからコミットする。
 var update = flag.Bool("update", false, "update golden files")
 
-// ゴールデンテストの入力は runnora-e2e のタグ format-v1 (旧形式) から、移行に関係するファイル
-// (config*.yaml、runbooks/、scripts/) を testdata/e2e-v1/ に写したもの。
-// migrate-scenarios.yaml は scripts/scenarios.psd1 と test-*.ps1 を人が書き写したシナリオ対応表。
+// ゴールデンテストの入力は runnora-e2e から、移行に関係するファイルを写したもの。
+//   - testdata/e2e-v1/: タグ format-v1 (旧形式) の config*.yaml、runbooks/、scripts/。
+//     migrate-scenarios.yaml は scripts/scenarios.psd1 と test-*.ps1 を人が書き写したシナリオ対応表
+//   - testdata/e2e-v2/: 新形式 (証跡の自動保存より前) の runnora.yaml、runbooks/、scripts/。
+//     dump ステップの削除と runnora-diff の diffEps() への置き換えだけを行う
 var goldenCases = []struct {
+	set  string
 	dir  string
 	opts Options
 }{
-	{dir: "api-test", opts: Options{
+	{set: "e2e-v1", dir: "api-test", opts: Options{
 		Envs:          []EnvSpec{{Name: "unit", File: "config.yaml"}, {Name: "mock", File: "config.mock.yaml"}},
 		ScenariosFile: "migrate-scenarios.yaml",
 	}},
-	{dir: "grpc-test", opts: Options{
+	{set: "e2e-v1", dir: "grpc-test", opts: Options{
 		Envs:          []EnvSpec{{Name: "unit", File: "config.yaml"}},
 		ScenariosFile: "migrate-scenarios.yaml",
 	}},
+	{set: "e2e-v2", dir: "api-test"},
+	{set: "e2e-v2", dir: "grpc-test"},
 }
 
 func TestGolden_E2E(t *testing.T) {
 	for _, gc := range goldenCases {
-		t.Run(gc.dir, func(t *testing.T) {
+		t.Run(gc.set+"/"+gc.dir, func(t *testing.T) {
 			work := filepath.Join(t.TempDir(), gc.dir)
-			copyTree(t, filepath.Join("testdata", "e2e-v1", gc.dir), work)
+			copyTree(t, filepath.Join("testdata", gc.set, gc.dir), work)
 
 			opts := gc.opts
 			opts.Dir = work
@@ -53,7 +58,7 @@ func TestGolden_E2E(t *testing.T) {
 			WriteReport(&report, plan, false)
 			gotReport := strings.ReplaceAll(report.String(), filepath.ToSlash(plan.Dir), "<dir>")
 
-			golden := filepath.Join("testdata", "e2e-v1-golden", gc.dir)
+			golden := filepath.Join("testdata", gc.set+"-golden", gc.dir)
 			if *update {
 				if err := os.RemoveAll(golden); err != nil {
 					t.Fatal(err)

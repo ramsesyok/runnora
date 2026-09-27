@@ -1,0 +1,23 @@
+desc: "蔵書を検索する suite"
+runnora:
+  id: "GEN-listBooks"
+labels:
+  - generated
+  - openapi
+  - "books"
+  - method:get
+  - "operation:listBooks"
+  - mode:suite
+
+vars:
+  cases:
+    - "json://../../../cases/generated/books/get_listBooks/default.json"
+
+steps:
+  run_case:
+    loop:
+      count: len(vars.cases)
+    include:
+      path: "./get_listBooks.template.yml"
+      vars:
+        case: "{{ vars.cases[i] }}"

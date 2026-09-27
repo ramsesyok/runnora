@@ -1,0 +1,36 @@
+desc: DEMO 事後処理の整合性検証がDB不整合を検知できることの確認（事後処理の失敗が期待値）
+runnora:
+  id: DEMO-HOOK-FAILURE
+  after:
+    - sql/cases/demo_break_invariant_after.sql
+  expect: hookFail
+# 実行: runnora run <this>
+# runbook 自体は成功するが、上の after で在庫数を壊すため、環境共通の後処理 (runnora.yaml の hooks.after) の
+# 90_verify_integrity.sql が RAISE_APPLICATION_ERROR を投げる。expect: hookFail なので、これを期待どおりとして
+# 合格に数える (runnora の終了コードは 0。検知できなかった場合は runbook が成功して期待と違うので 1)。
+labels:
+  - demo
+runners:
+  req:
+    endpoint: ${API_URL}
+    # 応答を OpenAPI 定義で自動検証する。異常系の入力を送るためリクエスト側の検証は行わない
+    openapi3: ../../openapi/library-api.yaml
+    skipValidateRequest: true
+steps:
+  health:
+    desc: APIとDBが稼働していることを確認する
+    req:
+      /health:
+        get:
+          headers:
+            X-Test-Scenario: DEMO
+          body: null
+  dump_health:
+    dump:
+      expr: steps.health.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/demo-health.json'
+  check_health:
+    test: |
+      steps.health.res.status == 200 &&
+      steps.health.res.body.status == "UP" &&
+      steps.health.res.body.database == "UP"

@@ -26,10 +26,6 @@ steps:
           headers:
             X-Test-Scenario: LIB-004
           body: null
-  dump_member_full:
-    dump:
-      expr: steps.member_full.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/member_full.json'
   check_member_full:
     test: |
       steps.member_full.res.status == 200 &&
@@ -44,10 +40,6 @@ steps:
           headers:
             X-Test-Scenario: LIB-004
           body: null
-  dump_active_loans:
-    dump:
-      expr: steps.active_loans.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/active_loans.json'
   check_active_loans:
     test: |
       steps.active_loans.res.status == 200 &&
@@ -71,10 +63,6 @@ steps:
             application/json:
               memberId: M0001
               bookId: B0001
-  dump_loan_rejected:
-    dump:
-      expr: steps.loan_rejected.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/loan_rejected.json'
   check_loan_rejected:
     test: |
       steps.loan_rejected.res.status == 409 &&
@@ -89,10 +77,6 @@ steps:
             X-Test-Scenario: LIB-004
           body:
             application/json: {}
-  dump_return_one:
-    dump:
-      expr: steps.return_one.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/return_one.json'
   check_return_one:
     test: |
       steps.return_one.res.status == 200 &&
@@ -108,10 +92,6 @@ steps:
           headers:
             X-Test-Scenario: LIB-004
           body: null
-  dump_book_returned:
-    dump:
-      expr: steps.book_returned.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/book_returned.json'
   check_book_returned:
     test: |
       steps.book_returned.res.status == 200 &&
@@ -128,10 +108,6 @@ steps:
             application/json:
               memberId: M0001
               bookId: B0001
-  dump_loan_ok:
-    dump:
-      expr: steps.loan_ok.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/loan_ok.json'
   check_loan_ok:
     test: |
       steps.loan_ok.res.status == 201 &&
@@ -150,10 +126,6 @@ steps:
           headers:
             X-Test-Scenario: LIB-004
           body: null
-  dump_active_loans_after:
-    dump:
-      expr: steps.active_loans_after.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/active_loans_after.json'
   check_active_loans_after:
     test: |
       steps.active_loans_after.res.status == 200 &&

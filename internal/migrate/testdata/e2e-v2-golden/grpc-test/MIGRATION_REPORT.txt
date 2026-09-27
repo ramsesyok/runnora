@@ -1,0 +1,18 @@
+runnora-migrate: <dir>
+
+変更 (4 ファイル):
+  modify  runbooks/calculation-streaming.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_calculate
+  modify  runbooks/series-analysis.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_analyze_series
+          - runnora-diff の呼び出しを diffEps() に置き換え: compare_without_epsilon, compare_with_epsilon
+  modify  runbooks/server-streaming.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_get_book, dump_list_books
+  modify  runbooks/unary.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_get_book
+
+TODO (2 件):
+  - scripts/run.ps1:19 ほか 3 行: RUNNORA_EVIDENCE_DIR の設定は不要になりました。runnora が実行ごとのフォルダ (reports/<日時>-<スイート名>/evidence/) に証跡を保存し、旧来の dump のために runbook ごとに設定します。レポート用のフォルダを作る処理とあわせて外してください
+  - scripts/run.ps1:12 ほか 3 行: runnora-diff の呼び出しを diffEps() に置き換えたため、runnora-diff のビルド・配置は不要です (ほかで使っていなければ外してください)
+
+書き込みました。git diff で確認し、TODO に対応したあと runnora validate を実行してください。

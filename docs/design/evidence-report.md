@@ -349,7 +349,7 @@ runnora-docgen の `manifest.json` に、手順番号とステップのキーの
 2. ステップ単位の `report.json` と、画面のテキストの追加行 … 実装済み
 3. `diffEps()` … 実装済み
 4. `summary.html` … 実装済み
-5. runnora-migrate の拡張と、e2e の書き換え
+5. runnora-migrate の拡張と、e2e の書き換え … runnora-migrate は実装済み（書き換えの細かい条件は [runnora-migrate](../migrate.md)）
 6. docgen の `manifest.json` の拡張（runnora-docgen）
 
 1〜4 は runnora の PR を分けて出す（レビューしやすくするため）。

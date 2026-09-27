@@ -1,0 +1,39 @@
+desc: 契約 listBooks 蔵書を検索する（モック・実APIの両方で実行する）
+runnora:
+  id: CONTRACT-listBooks
+labels:
+  - contract
+  - books
+  - operation:listBooks
+
+# ケースごとに include ステップを 1 つずつ並べる。
+#   runn の loop (until なし) は最後の回の失敗しか報告しないため、loop + include でケースを回すと
+#   途中のケースの失敗を見逃す。明示的なステップなら各ケースの失敗がそのまま報告される。
+# case     : 入力と期待ステータス (cases/contract/)
+# expected : 期待する応答本文。oapi2wire がモックの戻り値として返すファイルと同一 (fixtures/responses/)
+
+steps:
+  novel:
+    desc: 小説の検索は B0001・B0002 の 2 件
+    include:
+      # json:// の相対パスは include 先 template の位置で解決されるため、template は suite と同じ場所に置く
+      path: ./get_listBooks.template.yml
+      vars:
+        case: json://../../cases/contract/books/get_listBooks/01_novel.json
+        expected: json://../../fixtures/responses/listBooks/listBooks_novel.json
+  tech_available:
+    desc: 貸出可能な技術書（B0003 は contract_setup で 1 冊貸出中）
+    include:
+      # json:// の相対パスは include 先 template の位置で解決されるため、template は suite と同じ場所に置く
+      path: ./get_listBooks.template.yml
+      vars:
+        case: json://../../cases/contract/books/get_listBooks/02_tech_available.json
+        expected: json://../../fixtures/responses/listBooks/listBooks_tech_available.json
+  invalid_genre:
+    desc: 定義外のジャンルは 400
+    include:
+      # json:// の相対パスは include 先 template の位置で解決されるため、template は suite と同じ場所に置く
+      path: ./get_listBooks.template.yml
+      vars:
+        case: json://../../cases/contract/books/get_listBooks/03_invalid_genre.json
+        expected: json://../../fixtures/responses/listBooks/listBooks_invalid_genre.json

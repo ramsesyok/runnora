@@ -540,6 +540,15 @@ func HasDumpStep(text string) bool {
 	return false
 }
 
+// DumpWarning は dump ステップを持つ runbook への警告の文言を返す。runnora generate の出力
+// (generated/ の下) は runnora-migrate の対象外なので、作り直すよう案内する。
+func DumpWarning(path string) string {
+	if strings.Contains("/"+filepath.ToSlash(path), "/generated/") {
+		return "dump ステップは証跡の自動保存と重複しています (runnora generate で作り直してください)"
+	}
+	return "dump ステップは証跡の自動保存と重複しています (runnora-migrate で削除できます)"
+}
+
 // dumpWarner は、dump ステップを持つ runbook (include 先を含む) ごとに 1 回だけ警告する関数を返す。
 func dumpWarner(w io.Writer, root string) func(*scenario.Runbook) {
 	if w == nil {
@@ -553,7 +562,7 @@ func dumpWarner(w io.Writer, root string) func(*scenario.Runbook) {
 		}
 		warned[path] = true
 		if HasDumpStep(text) {
-			fmt.Fprintf(w, "警告: %s: dump ステップは証跡の自動保存と重複しています (runnora-migrate で削除できます)\n", displayPath(root, path))
+			fmt.Fprintf(w, "警告: %s: %s\n", displayPath(root, path), DumpWarning(path))
 		}
 	}
 	return func(rb *scenario.Runbook) {
