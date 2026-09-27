@@ -109,6 +109,7 @@ func TestBuildTemplateContentUsesMultipartBody(t *testing.T) {
 		OperationID:            "uploadFile",
 		OperationKey:           "post_uploadFile",
 		RunbookPath:            "/pet/{{ vars.case.pathParams.petId }}/uploadImage",
+		HasRequestBody:         true,
 		RequestBodyContentType: "multipart/form-data",
 		MultipartFields: []MultipartField{
 			{Name: "additionalMetadata", Sample: "TODO_string"},
@@ -128,6 +129,49 @@ func TestBuildTemplateContentUsesMultipartBody(t *testing.T) {
 	}
 	if strings.Contains(got, "application/json") {
 		t.Fatalf("multipart template should not contain application/json body:\n%s", got)
+	}
+}
+
+func TestRequestBodyOnlyWhenOperationDefinesOne(t *testing.T) {
+	tests := []struct {
+		name           string
+		method         string
+		hasRequestBody bool
+		sample         interface{}
+		wantBody       bool
+		wantCaseBody   interface{}
+	}{
+		{name: "POST without requestBody", method: "post", hasRequestBody: false, wantBody: false, wantCaseBody: nil},
+		{name: "POST with requestBody and sample", method: "post", hasRequestBody: true, sample: map[string]interface{}{"name": "x"}, wantBody: true, wantCaseBody: map[string]interface{}{"name": "x"}},
+		{name: "POST with requestBody but no sample", method: "post", hasRequestBody: true, wantBody: true, wantCaseBody: map[string]interface{}{"TODO": "fill in request body"}},
+		{name: "PUT without requestBody", method: "put", hasRequestBody: false, wantBody: false, wantCaseBody: nil},
+		{name: "GET with requestBody", method: "get", hasRequestBody: true, wantBody: false, wantCaseBody: nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			op := &OperationInfo{
+				Method:            tt.method,
+				Path:              "/loans/{loanId}/return",
+				PrimaryTag:        "loans",
+				OperationID:       "returnLoan",
+				OperationKey:      tt.method + "_returnLoan",
+				RunbookPath:       "/loans/{{ vars.case.pathParams.loanId }}/return",
+				HasRequestBody:    tt.hasRequestBody,
+				RequestBodySample: tt.sample,
+			}
+
+			template := buildTemplateContent(op, "req")
+			if got := strings.Contains(template, "          body:\n"); got != tt.wantBody {
+				t.Errorf("template has body = %v, want %v:\n%s", got, tt.wantBody, template)
+			}
+
+			caseBody := buildCaseData(op).RequestBody
+			gotJSON, _ := json.Marshal(caseBody)
+			wantJSON, _ := json.Marshal(tt.wantCaseBody)
+			if string(gotJSON) != string(wantJSON) {
+				t.Errorf("case requestBody = %s, want %s", gotJSON, wantJSON)
+			}
+		})
 	}
 }
 

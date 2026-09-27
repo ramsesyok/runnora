@@ -92,7 +92,8 @@ runbooks/evidence/ にコピーして育てる運用を推奨する。`,
 	cmd.Flags().StringVar(&server, "server", "", "template runbook の endpoint として使う server URL")
 	cmd.Flags().StringVar(&runnerName, "runner-name", "", "template runbook のランナー名 (デフォルト: req)")
 	cmd.Flags().BoolVar(&emitManifest, "emit-manifest", false, "manifest.json を生成する")
-	cmd.Flags().BoolVar(&emitResponseExample, "emit-response-example", false, "レスポンス example を case に含める")
+	cmd.Flags().BoolVar(&emitResponseExample, "emit-response-example", false, "(非推奨) レスポンス example は常に case に含まれるため効果なし")
+	_ = cmd.Flags().MarkDeprecated("emit-response-example", "レスポンス example は指定しなくても常に case JSON の expect.body に含まれます。今後のリリースで削除します")
 
 	return cmd
 }
