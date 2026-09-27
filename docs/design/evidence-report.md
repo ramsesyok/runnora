@@ -192,9 +192,11 @@ diffEps(expected, actual, rules)          rules は設定ファイルのパス�
 
 `diffEps()` は、呼ばれたステップ（4.4 のキー）に比較結果を記録する。
 
-- 差分があれば、証跡のフォルダに `<番号>-<キー>.diff.json` を書く。中身は runnora-diff の `--format json` と同じ（`summary` と `differences`）。`--no-evidence` のときは書かない。
-- そのステップが失敗したとき、`report.json` の `steps[].diff` に要約を入れる：差分の件数と先頭 5 件（パス、期待値、実際の値、適用した許容誤差）。サマリー HTML とテキストの要約にも同じものを出す。
-- 1 つのステップで複数回呼んだ場合は、呼んだ順に `diffs` の配列に入れる（ファイル名は `<番号>-<キー>.diff.<n>.json`）。
+- 差分があれば、証跡のフォルダに `<番号>-<キー>.diff.json` を書く。中身は runnora-diff の `--format json` と同じ（`equal`、`differences`、`summary`）。`!diffEps(...)` のように差分を期待したステップの差分も書く。`--no-evidence` のときは書かない。
+- そのステップが失敗したとき、`report.json` の `steps[].diffs` に要約を入れる：差分の件数（`differences`）、先頭 5 件（`items`。パス、種類、期待値、実際の値、適用した許容誤差）、全件のファイル（`file`）。テキストの要約にも件数・最初の差分・ファイルを 1 行で出す（サマリー HTML は 14 章の 4）。成功したステップ（差分を期待したものを含む）には付けない。
+- 1 つのステップで複数回呼んだ場合は、呼んだ順に `diffs` の配列に入れる（ファイル名は 2 回目から `<番号>-<キー>.diff.<n>.json`）。
+- `diffEps()` は実行中のステップを知る必要があるので、`--no-evidence` のときも Capturer を登録し、送受信は記録せずにステップだけを追う。
+- 数値の書き方（`1.0` と `1`）は、runn が `json://` を float64 で読むので残らない。差分の値は数値として同じ。
 
 ### 5.3 実装
 
@@ -236,7 +238,8 @@ diffEps(expected, actual, rules)          rules は設定ファイルのパス�
           "evidence": ["LIB-001/15-member_loans[0].json", "LIB-001/15-member_loans[1].json", "LIB-001/15-member_loans[2].json"] },
         { "key": "check_book", "index": 16, "runner": "test", "result": "failure",
           "error": "(steps.book_lent.res.body.availableCopies == 2) … actual 3",
-          "diff": { "differences": 1, "items": [ { "path": ".availableCopies", "expected": 2, "actual": 3 } ] } }
+          "diffs": [ { "differences": 1, "items": [ { "path": ".availableCopies", "kind": "changed", "expected": 2, "actual": 3 } ],
+                       "file": "LIB-001/16-check_book.diff.json" } ] }
       ]
     }
   ]
@@ -248,7 +251,7 @@ diffEps(expected, actual, rules)          rules は設定ファイルのパス�
 - runn はステップの loop の回ごとの結果を持たない（1 つにまとめる）ので、loop のステップは 1 つ（キーに `[n]` を付けない）で、`evidence` に回ごとの証跡を並べる。loop で include した場合も同じく、include 先のステップは 1 つ（`twice.call`）で、証跡は回ごと（`twice[0].call`、`twice[1].call`）。
 - `evidence` は `evidenceDir` からの相対パスの配列。証跡がないステップ（`test` だけなど）は省く。
 - `index` はトップレベルのステップの番号（1 始まり）。include 先のステップは呼び出したステップの番号。
-- `diff` は `diffEps()` の実装（14 章の 3）で加える。
+- `diffs` は `diffEps()` の差分の要約（5.2）。
 - `hooks` は実行した前後処理を順に書く。失敗したものは `ok: false` と `error`（ORA-xxxxx を含む）を持つ。
 - パスはすべて `/` 区切りの相対パス（プロジェクトルート基準、証跡は `evidenceDir` 基準）。別の PC でフォルダごと開いても読める。
 - `--report-format json` で画面（`--report-out`）に出す JSON も、この形にそろえる。
@@ -344,7 +347,7 @@ runnora-docgen の `manifest.json` に、手順番号とステップのキーの
 
 1. `internal/evidence` と実行ごとのフォルダ（`report.json` はまだ runbook 単位。証跡のファイルの一覧を runbook ごとに載せる）… 実装済み
 2. ステップ単位の `report.json` と、画面のテキストの追加行 … 実装済み
-3. `diffEps()`
+3. `diffEps()` … 実装済み
 4. `summary.html`
 5. runnora-migrate の拡張と、e2e の書き換え
 6. docgen の `manifest.json` の拡張（runnora-docgen）

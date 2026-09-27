@@ -216,7 +216,29 @@ reports/20260927-153012-scenarios/
 - runbook に `dump` ステップを書かなくても、HTTP・gRPC・DB・exec の各ステップの応答が保存されます。`runnora.yaml` の `evidence.mode: full` にすると、リクエストも保存します。
 - `Authorization`・`Proxy-Authorization`・`Cookie`・`Set-Cookie` の値は常に `***` に置き換えます。ほかに隠すヘッダや本文の値は `evidence.mask` に書きます。
 - 旧来の `dump` ステップ（`{{ env.RUNNORA_EVIDENCE_DIR }}` に書くもの）も動きます。runnora が runbook ごとに `RUNNORA_EVIDENCE_DIR` をそのシナリオの証跡フォルダに設定します。自動保存と重複するので、実行時と `validate` で警告します。
-- 詳細は [証跡とレポートの詳細設計](docs/design/evidence-report.md) を参照してください（ステップ単位のレポート、サマリー HTML、`diffEps()` は順次実装します）。
+- 詳細は [証跡とレポートの詳細設計](docs/design/evidence-report.md) を参照してください（サマリー HTML は順次実装します）。
+
+**数値の許容誤差付き比較 `diffEps()`:** runbook の式で、[runnora-diff](https://github.com/ramsesyok/runnora-diff) と同じ比較処理を使えます（`exec` で runnora-diff を呼ぶ必要はありません）。
+
+```yaml
+steps:
+  analyze_series:
+    greq:
+      sample.library.v1.LibraryService/AnalyzeSeries:
+        message: "{{ vars.request }}"
+    # 3 番目の引数は runnora-diff の設定ファイル (プロジェクトルート基準) か、設定そのもの
+    test: diffEps(vars.expected, current.res.message, "cases/series-analysis/tolerances.yaml")
+  exact:
+    test: 'diffEps(vars.expected, steps.analyze_series.res.message)'                         # 許容誤差なし
+  inline:
+    test: 'diffEps(vars.expected, steps.analyze_series.res.message, {"default": {"abs": 1e-6}})'
+  expect_difference:
+    test: '!diffEps(vars.expected, steps.analyze_series.res.message)'                        # 差分が出ることを確かめる
+```
+
+- 差分がなければ `true`、あれば `false` を返します。
+- 差分の全件は証跡の `<番号>-<キー>.diff.json`（runnora-diff の `--format json` と同じ形）に保存します。そのステップが失敗した場合は、`report.json` の `steps[].diffs` とテキストのレポートに、件数と最初の差分を出します。
+- 設定ファイルが読めない、形式が誤っている場合は、そのステップが失敗します（エラーの内容を表示します）。
 
 レポートには、プロジェクト名・環境・スイート・環境の `backends` の宣言と、runbook ごとの `id` / `expect` / `actual` (`pass` / `fail` / `hookFail` / `skipped`) / `passed` (期待どおりか) を出力します。`expect: fail` や `expect: hookFail` の runbook が期待どおりに失敗した場合は合格として数えます。
 

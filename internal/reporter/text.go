@@ -1,6 +1,7 @@
 package reporter
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
@@ -89,6 +90,11 @@ func (t *TextReporter) writeFailedSteps(res RunResult) error {
 		if _, err := fmt.Fprintf(t.w, "    Step %s: %s\n", s.Key, msg); err != nil {
 			return err
 		}
+		for _, d := range s.Diffs {
+			if _, err := fmt.Fprintf(t.w, "      diffEps: 差分 %d 件%s%s\n", d.Differences, firstDiff(d), diffFile(d)); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
@@ -160,3 +166,43 @@ func mismatch(res RunResult) string {
 // TextReporter は io.Writer を所有しないため、呼び出し元が Writer のライフサイクルを管理する。
 // Reporter インターフェースの実装として定義しているが、実際には何もしない。
 func (t *TextReporter) Close() error { return nil }
+
+// firstDiff は diffEps の先頭の差分を「(最初: .path 期待 x 実際 y)」の形で返す。
+func firstDiff(d DiffSummary) string {
+	if len(d.Items) == 0 {
+		return ""
+	}
+	b, err := json.Marshal(d.Items[0])
+	if err != nil {
+		return ""
+	}
+	var item struct {
+		Path     string `json:"path"`
+		Kind     string `json:"kind"`
+		Expected any    `json:"expected"`
+		Actual   any    `json:"actual"`
+	}
+	if json.Unmarshal(b, &item) != nil {
+		return ""
+	}
+	return fmt.Sprintf(" (最初: %s %s 期待 %s 実際 %s)", item.Path, item.Kind, compactJSON(item.Expected), compactJSON(item.Actual))
+}
+
+func diffFile(d DiffSummary) string {
+	if d.File == "" {
+		return ""
+	}
+	return " 全件: " + d.File
+}
+
+func compactJSON(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Sprint(v)
+	}
+	s := string(b)
+	if len(s) > 60 {
+		s = s[:57] + "..."
+	}
+	return s
+}

@@ -116,6 +116,19 @@ const (
 	StepNotRun = "notRun"
 )
 
+// MaxDiffItems は DiffSummary.Items に載せる差分の最大数 (全件は証跡の .diff.json)。
+const MaxDiffItems = 5
+
+// DiffSummary は diffEps() の差分の要約。
+type DiffSummary struct {
+	// Differences は差分の件数。
+	Differences int `json:"differences"`
+	// Items は先頭の差分 (最大 MaxDiffItems 件)。runnora-diff の --format json の differences と同じ形。
+	Items []any `json:"items"`
+	// File は差分の全件を書いた証跡ファイル (Report.EvidenceDir からの相対パス)。証跡を保存しない場合は空。
+	File string `json:"file,omitempty"`
+}
+
 // StepResult はステップ 1 つの結果。キーは証跡のファイル名と docgen の manifest.json と共通。
 type StepResult struct {
 	// Key はステップのキー。include 先は . でつなぐ (inc.call)。loop の回は証跡の側で [n] を付ける。
@@ -129,6 +142,8 @@ type StepResult struct {
 	Error     string `json:"error,omitempty"`
 	// Evidence はこのステップの証跡ファイル (Report.EvidenceDir からの相対パス)。loop は回ごとに 1 つ。
 	Evidence []string `json:"evidence,omitempty"`
+	// Diffs は、このステップで失敗した diffEps() の差分の要約 (呼んだ順)。
+	Diffs []DiffSummary `json:"diffs,omitempty"`
 }
 
 // Name はレポートで runbook を表す名前 (ID、なければパス) を返す。

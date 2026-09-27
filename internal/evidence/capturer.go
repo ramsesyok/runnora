@@ -25,6 +25,8 @@ const (
 	ModeResponse Mode = "response"
 	// ModeFull はリクエストと応答の両方を書く。
 	ModeFull Mode = "full"
+	// ModeOff は送受信を記録せず、実行中のステップだけを追う (--no-evidence でも diffEps の記録に使う)。
+	ModeOff Mode = "off"
 )
 
 // MaxBody は証跡に書く本文の上限 (これを超える分は切り捨てて truncated を付ける)。
@@ -170,7 +172,7 @@ func (c *Capturer) SetCurrentTrails(trs runn.Trails) {
 // begin は runner の種類 kind の送受信を記録する record を返す。
 // 同じステップで同じ種類の送受信が 2 回目に始まった場合は、新しい record を作る。
 func (c *Capturer) begin(kind, runnerKey string, restart bool) *record {
-	if c.key == "" {
+	if c.key == "" || c.mode == ModeOff {
 		return nil
 	}
 	if c.current == nil || (restart && c.current.runner == kind) || (c.current.runner != "" && c.current.runner != kind) {
@@ -559,4 +561,11 @@ func (c *Capturer) Flush(dir, base string) ([]Written, error) {
 		written = append(written, Written{Key: f.Key, Index: f.Index, Path: filepath.ToSlash(rel)})
 	}
 	return written, errs
+}
+
+// CurrentStep は実行中のステップのキーと、トップレベルのステップの番号を返す (diffEps の記録用)。
+func (c *Capturer) CurrentStep() (key string, index int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.key, c.index
 }
