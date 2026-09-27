@@ -287,6 +287,8 @@ frontend-mock/
 
 ## 8. 実施結果とレポート
 
+詳細設計は [evidence-report](design/evidence-report.md)。証跡の中身（既定は応答だけ、`evidence.mode: full` でリクエストも）、秘密情報を隠す範囲、実行ごとのフォルダ（`reports/<日時>-<スイート名>/`）などは同書の 2 章で決めた。
+
 - 証跡は `run --evidence-dir` で自動保存する（runn の capture 機構を使う）。runbook から `dump` ステップをなくす。
 - runnora-diff を組み込み関数にする（例：`test: diffEps(vars.expected, steps.x.res.body, "rules.yaml")`）。
 - JSON レポートを**ステップ単位**に拡張する。各ステップに `scenarioId`、`stepKey`、合否、失敗メッセージ、証跡ファイルのパスを持たせる。キーは docgen の `manifest.json` と共通にする。
@@ -335,7 +337,7 @@ runnora-e2e を移行する過程で、「同じスイートを複数の環境�
 |---|---|---|
 | 1 | すぐ直す：grpc-test の runnora-diff ビルド、oapi2wire の mapping id を安定化、e2e README の古い記述 | 対応済み（各リポジトリの main にマージ済み） |
 | 2 | 新形式を固める：`runnora.yaml`、`runnora:` ブロック、変数展開、`version: 2` | 実装済み（[format-v2](design/format-v2.md)。実装で決めた細部は同書の 14 章）。旧形式の最終版はタグ `v0.3.0` |
-| 3 | runtime：証跡の自動保存、`diffEps()` の内蔵、ステップ単位の JSON レポート、サマリー HTML | 次に着手する |
+| 3 | runtime：証跡の自動保存、`diffEps()` の内蔵、ステップ単位の JSON レポート、サマリー HTML | 詳細設計済み（[evidence-report](design/evidence-report.md)） |
 | 4 | e2e を新形式に書き直す（見本と移行の実例） | 書き換え済み（runnora-migrate で移行し、TODO を手で対応）。旧形式はタグ `format-v1`。**Windows での実行確認（旧形式と合否が同じこと）が残っている** |
 | 5 | `runnora-migrate` を作り、先行チームへ適用する | 作成済み（[runnora-migrate](migrate.md)）。e2e の `format-v1` を入力にしたゴールデンテストあり。先行チームへの適用はこれから |
 | 6 | 契約ケースとモック参照の統一、suite の導出、OpenAPI の静的検査、サンプル生成の共通化と改善（リクエスト・レスポンスを別ファイルに、制約に沿った値に） | サンプル生成は詳細設計済み（[sample-generation](design/sample-generation.md)） |
