@@ -150,7 +150,7 @@ runnora run [options] --suite <name>
 | `--fail-fast` | — | 最初の失敗で停止する |
 | `--scopes` | — | runn に追加で許可するスコープ（例: `run:exec`。複数指定可） |
 | `--evidence-dir` | 実行ごとのフォルダの `evidence/` | 証跡の保存先（`runnora.yaml` の `evidence.dir` より優先） |
-| `--no-evidence` | — | 証跡を保存しない（`report.json` は出力する） |
+| `--no-evidence` | — | 証跡を保存しない（`report.json` と `summary.html` は出力する） |
 
 `--config`、`--before-sql`、`--after-sql` は廃止しました。指定すると移行を案内して終了コード 2 で終了します。旧形式のプロジェクトは [runnora-migrate](docs/migrate.md) で移行できます。前後処理の SQL は `runnora.yaml` の `environments.<名前>.hooks` か、runbook の `runnora:` ブロックに書きます。
 
@@ -200,11 +200,12 @@ runnora run --var API_URL=http://localhost:18081 runbooks/scenarios/*.yml
 runnora run --suite scenarios --report-format junit --report-out ./junit.xml
 ```
 
-**実行ごとのフォルダと証跡:** `run` は毎回、`reports/<日時>-<スイート名>/`（スイートなしは `<日時>-run`。場所は `runnora.yaml` の `report.dir`）を作り、`report.json` と証跡を保存します。終了時に「レポート: …」とその場所を表示します。
+**実行ごとのフォルダと証跡:** `run` は毎回、`reports/<日時>-<スイート名>/`（スイートなしは `<日時>-run`。場所は `runnora.yaml` の `report.dir`）を作り、`report.json`・`summary.html` と証跡を保存します。終了時に「レポート: …/summary.html」とその場所を表示します。
 
 ```text
 reports/20260927-153012-scenarios/
 ├─ report.json                       JSON レポート（--report-format によらず毎回出力）
+├─ summary.html                      サマリー HTML（毎回出力。ブラウザで開く）
 ├─ report.xml                        --report-format junit のときだけ
 └─ evidence/
    └─ LIB-001/                       シナリオ ID ごと
@@ -216,7 +217,8 @@ reports/20260927-153012-scenarios/
 - runbook に `dump` ステップを書かなくても、HTTP・gRPC・DB・exec の各ステップの応答が保存されます。`runnora.yaml` の `evidence.mode: full` にすると、リクエストも保存します。
 - `Authorization`・`Proxy-Authorization`・`Cookie`・`Set-Cookie` の値は常に `***` に置き換えます。ほかに隠すヘッダや本文の値は `evidence.mask` に書きます。
 - 旧来の `dump` ステップ（`{{ env.RUNNORA_EVIDENCE_DIR }}` に書くもの）も動きます。runnora が runbook ごとに `RUNNORA_EVIDENCE_DIR` をそのシナリオの証跡フォルダに設定します。自動保存と重複するので、実行時と `validate` で警告します。
-- 詳細は [証跡とレポートの詳細設計](docs/design/evidence-report.md) を参照してください（サマリー HTML は順次実装します）。
+- `summary.html` は 1 ファイルで完結した HTML です（外部のファイルや CDN を読まないので、閉域環境でもブラウザで開けます）。実行の情報、集計、runbook の一覧（不合格を先頭に並べる・不合格だけ表示する切り替え付き）、runbook ごとの前後処理とステップの表（失敗メッセージ、`diffEps()` の差分の要約、証跡へのリンク）を載せます。印刷すると全部開いた状態になります。
+- 詳細は [証跡とレポートの詳細設計](docs/design/evidence-report.md) を参照してください。
 
 **数値の許容誤差付き比較 `diffEps()`:** runbook の式で、[runnora-diff](https://github.com/ramsesyok/runnora-diff) と同じ比較処理を使えます（`exec` で runnora-diff を呼ぶ必要はありません）。
 

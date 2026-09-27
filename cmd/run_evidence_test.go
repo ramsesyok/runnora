@@ -77,7 +77,7 @@ func TestRun_EvidenceAndRunFolder(t *testing.T) {
 		t.Fatalf("run folders: %v", dirs)
 	}
 	run := dirs[0]
-	if !strings.Contains(stderr, "レポート:") || !strings.Contains(stderr, "report.json") {
+	if !strings.Contains(stderr, "レポート:") || !strings.Contains(stderr, "summary.html") {
 		t.Errorf("stderr should show the report path: %s", stderr)
 	}
 	if !strings.Contains(stderr, "runbooks/old.yml: dump ステップは証跡の自動保存と重複しています") {
@@ -116,6 +116,15 @@ func TestRun_EvidenceAndRunFolder(t *testing.T) {
 	}
 	if byID["SC-1"] != "SC-1/01-hello.json" || byID["OLD-1"] != "OLD-1/01-hello.json" {
 		t.Errorf("evidence paths: %v", byID)
+	}
+
+	// summary.html は証跡へ相対リンクする
+	html, err := os.ReadFile(filepath.Join(run, "summary.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(html), `href="evidence/SC-1/01-hello.json"`) {
+		t.Errorf("summary.html should link the evidence: %s", html)
 	}
 
 	// 自動保存した証跡 (応答だけ。既定のモード)
@@ -161,8 +170,10 @@ func TestRun_EvidenceFlags(t *testing.T) {
 			t.Fatalf("report.dir: %v", entries)
 		}
 		run := filepath.Join(f.root, "out", "runs", entries[0].Name())
-		if _, err := os.Stat(filepath.Join(run, "report.json")); err != nil {
-			t.Error(err)
+		for _, name := range []string{"report.json", "summary.html"} {
+			if _, err := os.Stat(filepath.Join(run, name)); err != nil {
+				t.Error(err)
+			}
 		}
 		if _, err := os.Stat(filepath.Join(run, "evidence")); !os.IsNotExist(err) {
 			t.Error("--no-evidence should not create evidence/")

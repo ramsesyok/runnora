@@ -93,10 +93,14 @@ func (f *runFolder) relEvidenceDir() string {
 	return filepath.ToSlash(rel)
 }
 
-// writeReports は実行ごとのフォルダに report.json (と、junit のときは report.xml) を書く。
+// writeReports は実行ごとのフォルダに report.json と summary.html (と、junit のときは report.xml) を書き、
+// summary.html のパスを返す。
 func (f *runFolder) writeReports(rep *reporter.Report, format string) (string, error) {
-	jsonPath := filepath.Join(f.Dir, "report.json")
-	if err := writeReportFile("json", jsonPath, rep); err != nil {
+	if err := writeReportFile("json", filepath.Join(f.Dir, "report.json"), rep); err != nil {
+		return "", err
+	}
+	htmlPath := filepath.Join(f.Dir, "summary.html")
+	if err := writeSummaryHTML(htmlPath, rep); err != nil {
 		return "", err
 	}
 	if format == "junit" {
@@ -104,7 +108,22 @@ func (f *runFolder) writeReports(rep *reporter.Report, format string) (string, e
 			return "", err
 		}
 	}
-	return jsonPath, nil
+	return htmlPath, nil
+}
+
+func writeSummaryHTML(path string, rep *reporter.Report) error {
+	fh, err := os.Create(path)
+	if err != nil {
+		return &app.AppError{ExitCode: 5, Cause: fmt.Errorf("report: %w", err)}
+	}
+	writeErr := reporter.NewHTMLReporter(fh).Write(rep)
+	if closeErr := fh.Close(); writeErr == nil {
+		writeErr = closeErr
+	}
+	if writeErr != nil {
+		return &app.AppError{ExitCode: 5, Cause: fmt.Errorf("report write: %w", writeErr)}
+	}
+	return nil
 }
 
 // removeIfEmpty は何も書かなかった実行ごとのフォルダを消す (実行前に失敗した場合)。
