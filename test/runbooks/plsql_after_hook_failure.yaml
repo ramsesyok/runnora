@@ -1,0 +1,17 @@
+desc: 事後処理の PL/SQL 例外がフック失敗として検知されることの確認
+runnora:
+  id: PLSQL-AFTER-HOOK-FAILURE
+  # 共通の前処理で 0 件にした状態で実行するため、cleanup_with_exception.sql は
+  # RAISE_APPLICATION_ERROR(-20001) で失敗する。その失敗を期待する結果とする。
+  after: [sql/plsql/cleanup_with_exception.sql]
+  expect: hookFail
+runners:
+  req:
+    endpoint: ${API_URL}
+steps:
+  get_health:
+    req:
+      /health:
+        get:
+          body: null
+    test: steps.get_health.res.status == 200 && steps.get_health.res.body.status == "ok"

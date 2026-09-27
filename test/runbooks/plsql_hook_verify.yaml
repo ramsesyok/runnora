@@ -1,4 +1,10 @@
-desc: PL/SQL フックの動作確認 (--before-sql で seed_with_cursor.sql を使用)
+desc: PL/SQL フックの動作確認 (シナリオ固有の前処理 seed_with_cursor.sql で 3 件投入)
+runnora:
+  id: PLSQL-HOOK-VERIFY
+  # 環境の共通フック (sql/common/before.sql) の後に、PL/SQL カーソルで 3 件投入する
+  before: [sql/plsql/seed_with_cursor.sql]
+  # 投入した 3 件を削除する (0 件のときは RAISE_APPLICATION_ERROR で失敗する)
+  after: [sql/plsql/cleanup_with_exception.sql]
 runners:
   req:
     endpoint: http://localhost:8081

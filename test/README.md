@@ -7,7 +7,7 @@ runnora を使った WebAPI・gRPC・Oracle DB (PL/SQL) の統合テスト環境
 ```
 test/
 ├── docker-compose.yaml          # Oracle / testapi / testgrpc の起動定義
-├── config.yaml                  # runnora 設定ファイル
+├── runnora.yaml                 # runnora プロジェクトファイル (環境・共通フック・スイート)
 │
 ├── oracle-init/
 │   └── 01_init.sql              # DB 初期化 (testuser 作成 + USERS テーブル DDL)
@@ -47,7 +47,8 @@ test/
     ├── grpc_get_user.yaml       # gRPC GetUser + NotFound 確認
     ├── grpc_update_user.yaml    # gRPC UpdateUser + DB 検証
     ├── grpc_delete_user.yaml    # gRPC DeleteUser + DB 検証
-    └── plsql_hook_verify.yaml   # PL/SQL シードフック動作確認
+    ├── plsql_hook_verify.yaml   # PL/SQL シードフック動作確認 (runnora: ブロックで前後処理を指定)
+    └── plsql_after_hook_failure.yaml  # 事後処理の PL/SQL 例外の検知 (expect: hookFail)
 ```
 
 ---
@@ -148,7 +149,7 @@ go build -o testgrpc . && DB_DSN="oracle://testuser:TestPass1!@localhost:1521/FR
 
 ## テストの実行
 
-以降のコマンドはすべて `test/` ディレクトリから実行します。
+以降のコマンドはすべて `test/` ディレクトリから実行します。`test/runnora.yaml` は自動で見つかるので、`--project` の指定は不要です。
 
 ```bash
 cd test
@@ -157,7 +158,7 @@ cd test
 ### HTTP runbook を全て実行する
 
 ```bash
-../runnora run --config ./config.yaml \
+../runnora run \
   ./runbooks/health_check.yaml \
   ./runbooks/user_create.yaml \
   ./runbooks/user_list.yaml \
@@ -169,7 +170,7 @@ cd test
 ### gRPC runbook を全て実行する
 
 ```bash
-../runnora run --config ./config.yaml \
+../runnora run \
   ./runbooks/grpc_create_user.yaml \
   ./runbooks/grpc_list_users.yaml \
   ./runbooks/grpc_get_user.yaml \
@@ -180,7 +181,7 @@ cd test
 ### HTTP + gRPC を一括実行する
 
 ```bash
-../runnora run --config ./config.yaml \
+../runnora run \
   ./runbooks/health_check.yaml \
   ./runbooks/user_create.yaml \
   ./runbooks/user_list.yaml \
@@ -196,29 +197,39 @@ cd test
 
 ### PL/SQL フック動作確認
 
-`--before-sql` に PL/SQL カーソルを使うシードスクリプトを渡し、フック経由でデータが挿入されることを確認します。
+PL/SQL の前後処理は、runbook の `runnora:` ブロックに書きます。`plsql` スイートで 2 つの runbook をまとめて実行します。
 
 ```bash
-../runnora run --config ./config.yaml \
-  --before-sql ./sql/plsql/seed_with_cursor.sql \
-  ./runbooks/plsql_hook_verify.yaml
+../runnora run --suite plsql
+```
+
+`plsql_hook_verify.yaml` の `runnora:` ブロック:
+
+```yaml
+runnora:
+  id: PLSQL-HOOK-VERIFY
+  before: [sql/plsql/seed_with_cursor.sql]       # PL/SQL カーソルで 3 件 INSERT
+  after: [sql/plsql/cleanup_with_exception.sql]  # 投入した 3 件を DELETE
 ```
 
 **フック実行順序:**
 
 ```
-[before] config.yaml の common.before (before.sql: TRUNCATE)
-         → --before-sql で指定した seed_with_cursor.sql (PL/SQL カーソルで 3件 INSERT)
+[before] runnora.yaml の hooks.before (before.sql: TRUNCATE)
+         → runnora: ブロックの before (seed_with_cursor.sql: PL/SQL カーソルで 3件 INSERT)
          → runbook 実行 (3件存在することを API / DB の両面で確認)
-[after]  config.yaml の common.after (after.sql: 残存レコード数を DBMS_OUTPUT に出力)
+[after]  runnora: ブロックの after (cleanup_with_exception.sql: 3件 DELETE)
+         → runnora.yaml の hooks.after (after.sql: 残存レコード数を DBMS_OUTPUT に出力)
 ```
 
-GitHub Actions の `Oracle PL/SQL hooks` ジョブでは Oracle Free と testapi を起動し、上記の事前フックに加えて `--after-sql ./sql/plsql/cleanup_with_exception.sql` を実行します。runbook で 3 件の投入を確認した後、事後フックが削除した結果を Oracle に直接照会して 0 件であることを確認します。続いて、データが 0 件の状態で同じ事後フックを実行し、PL/SQL 例外が終了コード 4 として返ることも確認します。
+`plsql_after_hook_failure.yaml` は、データが 0 件の状態で `cleanup_with_exception.sql` を事後処理として実行し、PL/SQL 例外 (`ORA-20001`) がフック失敗として検知されることを確かめます。`runnora:` ブロックに `expect: hookFail` と書いているため、期待どおりにフックが失敗すれば合格として数えます。
+
+GitHub Actions の `Oracle PL/SQL hooks` ジョブでは Oracle Free と testapi を起動し、`runnora validate` で検査した後に `plsql` スイートを JSON レポートで実行します。2 つの runbook が期待どおりであること、フック失敗の内容に `ORA-20001` が含まれること、事後処理によって Oracle のデータが 0 件になっていることを確認します。
 
 ### レポートをファイルに出力する
 
 ```bash
-../runnora run --config ./config.yaml \
+../runnora run \
   --report-format text \
   --report-out /tmp/result.txt \
   ./runbooks/*.yaml
@@ -228,7 +239,7 @@ cat /tmp/result.txt
 ### 失敗時に即停止する (fail-fast)
 
 ```bash
-../runnora run --config ./config.yaml --fail-fast \
+../runnora run --fail-fast \
   ./runbooks/health_check.yaml \
   ./runbooks/user_create.yaml
 ```
@@ -237,7 +248,7 @@ cat /tmp/result.txt
 
 ## PL/SQL フックの詳細
 
-### common フック (全 runbook に自動適用)
+### 環境の共通フック (runnora.yaml の hooks。全 runbook に自動適用)
 
 | ファイル | タイミング | 内容 |
 |---|---|---|
@@ -256,11 +267,10 @@ cat /tmp/result.txt
 `cleanup_with_exception.sql` はデータが 0 件のとき意図的にエラーを発生させます。**異常系フックのテスト**（終了コード 4 の確認）に使用できます。
 
 ```bash
-# 異常系: before.sql で TRUNCATE 後に cleanup_with_exception.sql を実行 → フック失敗 (exit 4)
-../runnora run --config ./config.yaml \
-  --after-sql ./sql/plsql/cleanup_with_exception.sql \
-  ./runbooks/health_check.yaml
-echo "exit code: $?"   # 4 が返る
+# 異常系: before.sql で TRUNCATE 後に cleanup_with_exception.sql を実行 → フック失敗
+# plsql_after_hook_failure.yaml は expect: hookFail なので、期待どおりの失敗として合格 (exit 0) になる
+../runnora run ./runbooks/plsql_after_hook_failure.yaml
+echo "exit code: $?"   # 0 が返る (expect を書かない runbook でフックが失敗した場合は 4)
 ```
 
 ---
