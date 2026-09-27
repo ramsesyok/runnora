@@ -1,0 +1,23 @@
+desc: "蔵書を 1 件取得する suite"
+runnora:
+  id: "GEN-getBook"
+labels:
+  - generated
+  - openapi
+  - "books"
+  - method:get
+  - "operation:getBook"
+  - mode:suite
+
+vars:
+  cases:
+    - "json://../../../cases/generated/books/get_getBook/default.json"
+
+steps:
+  run_case:
+    loop:
+      count: len(vars.cases)
+    include:
+      path: "./get_getBook.template.yml"
+      vars:
+        case: "{{ vars.cases[i] }}"

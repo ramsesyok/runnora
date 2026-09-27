@@ -5,6 +5,10 @@
 //   - runbook の runners に直書きした接続先 (HTTP の endpoint、DB の DSN、gRPC の addr) → ${VAR}
 //   - 実行の入口になる runbook (include されない runbook) → runnora: ブロックを追加
 //     (前後処理の SQL と期待する結果は、シナリオ対応表 (--scenarios) から入れる)
+//   - RUNNORA_EVIDENCE_DIR に書く dump ステップ → 削除 (証跡は runnora が自動で保存する)
+//   - exec で runnora-diff を呼ぶ比較 → test: diffEps(...)
+//
+// 新形式 (runnora.yaml がある) のプロジェクトでは、runbook の書き換えだけを行う。
 //
 // 自動で移行できないもの (スクリプトの --before-sql などの指定、環境ごとに違う値) は TODO として報告する。
 // 再生成する runbooks/generated/ は変更しない。
@@ -116,10 +120,26 @@ func Build(opts Options) (*Plan, error) {
 	names := newVarNames(envs)
 	usedIDs := map[string]string{}
 	matched := map[int]bool{}
+	convertedDiff := false
 
 	for _, d := range runbooks {
 		var notes []string
 		changed := false
+
+		// 0. 証跡の dump ステップを削除し、runnora-diff の呼び出しを diffEps() にする
+		ev, err := migrateEvidence(d, plan)
+		if err != nil {
+			return nil, err
+		}
+		if len(ev.removedDumps) > 0 {
+			notes = append(notes, "証跡の dump ステップを削除 (runnora が自動で保存): "+strings.Join(ev.removedDumps, ", "))
+			changed = true
+		}
+		if len(ev.converted) > 0 {
+			notes = append(notes, "runnora-diff の呼び出しを diffEps() に置き換え: "+strings.Join(ev.converted, ", "))
+			changed = true
+			convertedDiff = true
+		}
 
 		// 1. runners の直書きの接続先を変数にする。変数名は書かれた順に決め、
 		//    置き換えは位置がずれないように後ろの値から行う。
@@ -244,12 +264,17 @@ func Build(opts Options) (*Plan, error) {
 			defined[k] = true
 		}
 	}
+	if len(envs) == 0 {
+		for k := range projectVars(dir) {
+			defined[k] = true
+		}
+	}
 	for _, name := range undefinedVars(runbooks, defined) {
 		plan.todo("runnora.yaml", "runbook が参照する %s がどの環境にも定義されていません。スクリプトで環境変数として渡していた値を environments.<名前>.vars に書いてください", name)
 	}
 
 	// 5. スクリプトと runbook のコメントにある旧形式の指定を報告する
-	if err := scanScripts(dir, plan); err != nil {
+	if err := scanScripts(dir, plan, convertedDiff); err != nil {
 		return nil, err
 	}
 	for _, d := range runbooks {
@@ -511,8 +536,16 @@ func undefinedVars(docs []*runbookDoc, defined map[string]bool) []string {
 // legacyScriptPattern はスクリプト中の旧形式の指定に一致する。
 var legacyScriptPattern = regexp.MustCompile(`--config\b|--before-sql\b|--after-sql\b|--scopes\b`)
 
+// evidenceScriptPattern は、証跡の自動保存で不要になったスクリプトの処理に一致する。
+var evidenceScriptPattern = regexp.MustCompile(`RUNNORA_EVIDENCE_DIR`)
+
+// diffScriptPattern は runnora-diff のビルドや配置に一致する (diffEps() に置き換えた場合に報告する)。
+var diffScriptPattern = regexp.MustCompile(`runnora-diff|jsondiff-eps`)
+
 // scanScripts はスクリプトの旧形式の指定 (--config / --before-sql / --after-sql / --scopes) を報告する。
-func scanScripts(dir string, plan *Plan) error {
+// 証跡の保存先 (RUNNORA_EVIDENCE_DIR) の設定と、diffEps() に置き換えた runnora-diff の準備は、
+// 不要になった処理としてファイルごとに 1 件報告する。
+func scanScripts(dir string, plan *Plan, convertedDiff bool) error {
 	return filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -536,14 +569,56 @@ func scanScripts(dir string, plan *Plan) error {
 		}
 		rel, _ := filepath.Rel(dir, p)
 		rel = filepath.ToSlash(rel)
+		var evidenceLines, diffLines []int
 		for i, line := range strings.Split(string(data), "\n") {
 			where := fmt.Sprintf("%s:%d", rel, i+1)
 			for _, m := range uniqSorted(legacyScriptPattern.FindAllString(line, -1)) {
 				reportScriptFlag(plan, where, m)
 			}
+			if evidenceScriptPattern.MatchString(line) {
+				evidenceLines = append(evidenceLines, i+1)
+			}
+			if convertedDiff && diffScriptPattern.MatchString(line) {
+				diffLines = append(diffLines, i+1)
+			}
+		}
+		if len(evidenceLines) > 0 {
+			plan.todo(linesWhere(rel, evidenceLines), "%s の設定は不要になりました。runnora が実行ごとのフォルダ (reports/<日時>-<スイート名>/evidence/) に証跡を保存し、旧来の dump のために runbook ごとに設定します。レポート用のフォルダを作る処理とあわせて外してください", evidenceEnv)
+		}
+		if len(diffLines) > 0 {
+			plan.todo(linesWhere(rel, diffLines), "runnora-diff の呼び出しを diffEps() に置き換えたため、runnora-diff のビルド・配置は不要です (ほかで使っていなければ外してください)")
 		}
 		return nil
 	})
+}
+
+// linesWhere は「ファイル:行」(複数行なら「ファイル:行 ほか N 行」) を返す。
+func linesWhere(rel string, lines []int) string {
+	where := fmt.Sprintf("%s:%d", rel, lines[0])
+	if len(lines) > 1 {
+		where += fmt.Sprintf(" ほか %d 行", len(lines)-1)
+	}
+	return where
+}
+
+// projectVars は新形式の runnora.yaml の環境とスイートで定義された変数名を返す。
+func projectVars(dir string) map[string]bool {
+	out := map[string]bool{}
+	p, err := project.Load(filepath.Join(dir, project.FileName))
+	if err != nil {
+		return out
+	}
+	for _, e := range p.Environments {
+		for k := range e.Vars {
+			out[k] = true
+		}
+	}
+	for _, s := range p.Suites {
+		for k := range s.Vars {
+			out[k] = true
+		}
+	}
+	return out
 }
 
 // reportScriptFlag はスクリプトの旧形式の指定 1 つを TODO にする。

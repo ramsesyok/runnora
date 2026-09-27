@@ -1,0 +1,149 @@
+desc: LIB-004 貸出上限3冊に達した会員は借りられず、1冊返すと借りられる
+runnora:
+  id: LIB-004
+  before:
+    - sql/cases/lib004_fill_loans_before.sql
+# 実行: runnora run <this> (前後処理は上の runnora: ブロック。スイートでまとめて流すときは runnora run --suite scenarios)
+# 前処理で M0001 に TECH の本 B0003, B0006, B0008 を貸し出す。
+# 貸出 ID は固定値で書かず、貸出一覧の応答から取り出して後続の返却・照会に引き継ぐ。
+labels:
+  - scenario
+  - loans
+  - plsql-setup
+runners:
+  req:
+    endpoint: ${API_URL}
+    # 応答を OpenAPI 定義で自動検証する。異常系の入力を送るためリクエスト側の検証は行わない
+    openapi3: ../../openapi/library-api.yaml
+    skipValidateRequest: true
+  db: ${ORACLE_DSN}
+steps:
+  member_full:
+    desc: 前処理によりM0001の貸出中件数が上限3に達していることを確認する
+    req:
+      /members/M0001:
+        get:
+          headers:
+            X-Test-Scenario: LIB-004
+          body: null
+  check_member_full:
+    test: |
+      steps.member_full.res.status == 200 &&
+      steps.member_full.res.body.activeLoanCount == 3 &&
+      steps.member_full.res.body.maxLoans == 3
+
+  active_loans:
+    desc: 貸出中一覧を取得し、明示カーソルがbook_id順に貸し出した3冊であることを確認する
+    req:
+      /members/M0001/loans?status=ACTIVE:
+        get:
+          headers:
+            X-Test-Scenario: LIB-004
+          body: null
+  check_active_loans:
+    test: |
+      steps.active_loans.res.status == 200 &&
+      steps.active_loans.res.body.total == 3 &&
+      map(steps.active_loans.res.body.items, .bookId) == ["B0003", "B0006", "B0008"]
+
+  save_loans:
+    desc: 一覧の2件目を返却対象として、貸出IDと蔵書IDを保存する。3件の貸出IDも保存する
+    bind:
+      return_loan_id: steps.active_loans.res.body.items[1].loanId
+      return_book_id: steps.active_loans.res.body.items[1].bookId
+      loan_ids_before: map(steps.active_loans.res.body.items, .loanId)
+  loan_rejected:
+    desc: 4冊目を借りようとすると409 LOAN_LIMIT_EXCEEDEDになる
+    req:
+      /loans:
+        post:
+          headers:
+            X-Test-Scenario: LIB-004
+          body:
+            application/json:
+              memberId: M0001
+              bookId: B0001
+  check_loan_rejected:
+    test: |
+      steps.loan_rejected.res.status == 409 &&
+      steps.loan_rejected.res.body.code == "LOAN_LIMIT_EXCEEDED"
+
+  return_one:
+    desc: 保存した貸出IDで返却し、応答の貸出・蔵書が保存した値と一致することを確認する
+    req:
+      /loans/{{ return_loan_id }}/return:
+        post:
+          headers:
+            X-Test-Scenario: LIB-004
+          body:
+            application/json: {}
+  check_return_one:
+    test: |
+      steps.return_one.res.status == 200 &&
+      steps.return_one.res.body.loanId == return_loan_id &&
+      steps.return_one.res.body.bookId == return_book_id &&
+      steps.return_one.res.body.status == "RETURNED"
+
+  book_returned:
+    desc: 保存した蔵書IDで蔵書を照会し、返却で貸出可能冊数が1冊に戻ったことを確認する
+    req:
+      /books/{{ return_book_id }}:
+        get:
+          headers:
+            X-Test-Scenario: LIB-004
+          body: null
+  check_book_returned:
+    test: |
+      steps.book_returned.res.status == 200 &&
+      steps.book_returned.res.body.availableCopies == 1
+
+  loan_ok:
+    desc: 上限に空きができたのでB0001を借りられる。新しい貸出IDは既存の3件と重複しない
+    req:
+      /loans:
+        post:
+          headers:
+            X-Test-Scenario: LIB-004
+          body:
+            application/json:
+              memberId: M0001
+              bookId: B0001
+  check_loan_ok:
+    test: |
+      steps.loan_ok.res.status == 201 &&
+      steps.loan_ok.res.body.bookId == "B0001" &&
+      !(steps.loan_ok.res.body.loanId in loan_ids_before)
+
+  save_new_loan:
+    desc: 新しい貸出IDを保存する
+    bind:
+      new_loan_id: steps.loan_ok.res.body.loanId
+  active_loans_after:
+    desc: 貸出中一覧が、返却した貸出を除いて新しい貸出を含む3件になったことを確認する
+    req:
+      /members/M0001/loans?status=ACTIVE:
+        get:
+          headers:
+            X-Test-Scenario: LIB-004
+          body: null
+  check_active_loans_after:
+    test: |
+      steps.active_loans_after.res.status == 200 &&
+      steps.active_loans_after.res.body.total == 3 &&
+      new_loan_id in map(steps.active_loans_after.res.body.items, .loanId) &&
+      !(return_loan_id in map(steps.active_loans_after.res.body.items, .loanId))
+
+  db_returned_row:
+    desc: DB上でも保存した貸出IDの行が返却済みになっていることを確認する
+    db:
+      query: |
+        SELECT status FROM loans WHERE loan_id = {{ return_loan_id }}
+    test: |
+      len(current.rows) == 1 &&
+      current.rows[0].STATUS == "RETURNED"
+  db_active_count:
+    desc: DB上でもM0001の貸出中が3件（上限ちょうど）であることを確認する
+    db:
+      query: |
+        SELECT COUNT(*) AS cnt FROM loans WHERE member_id = 'M0001' AND status = 'ACTIVE'
+    test: current.rows[0].CNT == "3"

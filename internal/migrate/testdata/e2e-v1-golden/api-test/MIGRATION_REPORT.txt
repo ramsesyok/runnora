@@ -1,63 +1,91 @@
 runnora-migrate: <dir>
 
-変更 (21 ファイル):
+変更 (29 ファイル):
   create  runnora.yaml
           - 環境: unit ← config.yaml, mock ← config.mock.yaml
   modify  runbooks/contract/get_getBook.suite.yml
           - runnora: ブロックを追加 (id: get_getBook.suite)
+  modify  runbooks/contract/get_getBook.template.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_call_api
   modify  runbooks/contract/get_getHealth.suite.yml
           - runnora: ブロックを追加 (id: get_getHealth.suite)
+  modify  runbooks/contract/get_getHealth.template.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_call_api
   modify  runbooks/contract/get_getMember.suite.yml
           - runnora: ブロックを追加 (id: get_getMember.suite)
+  modify  runbooks/contract/get_getMember.template.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_call_api
   modify  runbooks/contract/get_listBooks.suite.yml
           - runnora: ブロックを追加 (id: get_listBooks.suite)
+  modify  runbooks/contract/get_listBooks.template.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_call_api
   modify  runbooks/contract/get_listMemberLoans.suite.yml
           - runnora: ブロックを追加 (id: get_listMemberLoans.suite)
+  modify  runbooks/contract/get_listMemberLoans.template.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_call_api
   modify  runbooks/contract/post_createBook.suite.yml
           - runnora: ブロックを追加 (id: post_createBook.suite)
+  modify  runbooks/contract/post_createBook.template.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_call_api
   modify  runbooks/contract/post_createLoan.suite.yml
           - runnora: ブロックを追加 (id: post_createLoan.suite)
+  modify  runbooks/contract/post_createLoan.template.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_call_api
   modify  runbooks/contract/post_returnLoan.suite.yml
           - runnora: ブロックを追加 (id: post_returnLoan.suite)
+  modify  runbooks/contract/post_returnLoan.template.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_call_api
   modify  runbooks/demo/hook-failure-detection.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_health
           - runners の直書きの値を変数に置き換え: API_URL
           - runnora: ブロックを追加 (id: DEMO-HOOK-FAILURE)
   modify  runbooks/scenarios/lib-001-loan-lifecycle.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_member_before, dump_book_before, dump_create_loan, dump_book_lent, dump_return_loan, dump_return_again, dump_book_restored, dump_member_after
           - runners の直書きの値を変数に置き換え: API_URL, ORACLE_DSN
           - runnora: ブロックを追加 (id: LIB-001)
   modify  runbooks/scenarios/lib-001-member-loans-poll.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_response
           - runners の直書きの値を変数に置き換え: API_URL
   modify  runbooks/scenarios/lib-002-no-stock.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_first_loan, dump_book_empty, dump_available_novels, dump_second_loan_rejected, dump_return_first, dump_second_loan_ok, dump_book_empty_again
           - runners の直書きの値を変数に置き換え: API_URL, ORACLE_DSN
           - runnora: ブロックを追加 (id: LIB-002)
   modify  runbooks/scenarios/lib-003-overdue.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_member_overdue, dump_active_loans, dump_book_lent, dump_loan_rejected, dump_return_overdue, dump_book_returned, dump_member_cleared, dump_loan_ok, dump_loan_history
           - runners の直書きの値を変数に置き換え: API_URL
           - runnora: ブロックを追加 (id: LIB-003)
   modify  runbooks/scenarios/lib-004-loan-limit.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_member_full, dump_active_loans, dump_loan_rejected, dump_return_one, dump_book_returned, dump_loan_ok, dump_active_loans_after
           - runners の直書きの値を変数に置き換え: API_URL, ORACLE_DSN
           - runnora: ブロックを追加 (id: LIB-004)
   modify  runbooks/scenarios/lib-005-savepoint.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_test_books, dump_duplicate_rolled_back, dump_fk_rolled_back, dump_unit_with_loan, dump_sequence_gap, dump_bulk_suspend_rolled_back, dump_single_suspend, dump_suspended_cannot_borrow, dump_api_duplicate_isbn, dump_api_register_b0103
           - runners の直書きの値を変数に置き換え: API_URL, ORACLE_DSN
           - runnora: ブロックを追加 (id: LIB-005)
   modify  runbooks/scenarios/lib-006-validation-errors.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_suspended_member, dump_unknown_member, dump_unknown_book, dump_missing_book_id, dump_unknown_field, dump_invalid_isbn, dump_invalid_copies, dump_invalid_genre, dump_invalid_status_filter, dump_unknown_loan
           - runners の直書きの値を変数に置き換え: API_URL
           - runnora: ブロックを追加 (id: LIB-006)
   modify  runbooks/scenarios/lib-007-bulk-history.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_returned_history, dump_no_active, dump_member_clean, dump_loan_after_history
           - runners の直書きの値を変数に置き換え: API_URL, ORACLE_DSN
           - runnora: ブロックを追加 (id: LIB-007)
   modify  runbooks/scenarios/lib-007-inspect-history-book.yml
+          - 証跡の dump ステップを削除 (runnora が自動で保存): dump_response
           - runners の直書きの値を変数に置き換え: API_URL
   delete  config.yaml
           - runnora.yaml の環境 unit に移行
   delete  config.mock.yaml
           - runnora.yaml の環境 mock に移行
 
-TODO (21 件):
+TODO (23 件):
   - runbooks/generated: runnora generate の出力 (16 ファイル) は移行しません。新しい runnora で再生成してください
   - runnora.yaml: API_URL は runbook に直書きされていた値 (http://127.0.0.1:18081) を環境 unit に入れました。環境ごとに正しい値か確認してください
   - scripts/_common.ps1:39: --config は廃止されました。runnora.yaml を使うので指定を外してください (環境は --env で選ぶ)
   - scripts/_common.ps1:40: --before-sql は廃止されました。指定していた SQL を runbook の runnora: ブロック (before / after) に移し、指定を外してください
   - scripts/_common.ps1:41: --after-sql は廃止されました。指定していた SQL を runbook の runnora: ブロック (before / after) に移し、指定を外してください
+  - scripts/_common.ps1:46 ほか 2 行: RUNNORA_EVIDENCE_DIR の設定は不要になりました。runnora が実行ごとのフォルダ (reports/<日時>-<スイート名>/evidence/) に証跡を保存し、旧来の dump のために runbook ごとに設定します。レポート用のフォルダを作る処理とあわせて外してください
+  - scripts/add-response-evidence.ps1:17: RUNNORA_EVIDENCE_DIR の設定は不要になりました。runnora が実行ごとのフォルダ (reports/<日時>-<スイート名>/evidence/) に証跡を保存し、旧来の dump のために runbook ごとに設定します。レポート用のフォルダを作る処理とあわせて外してください
   - scripts/build-docs.ps1:51: --config は廃止されました。runnora.yaml を使うので指定を外してください (環境は --env で選ぶ)
   - scripts/build-docs.ps1:51: --before-sql は廃止されました。指定していた SQL を runbook の runnora: ブロック (before / after) に移し、指定を外してください
   - scripts/build-docs.ps1:84: --config は廃止されました。runnora.yaml を使うので指定を外してください (環境は --env で選ぶ)

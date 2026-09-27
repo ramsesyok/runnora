@@ -1,0 +1,39 @@
+# runbooks/generated/ から複製して拡張した契約テスト用 template (生成物は再生成で上書きされるため)
+# 変更点: ステータスに加え、応答本文がモックと共有する期待ファイル (vars.expected) と一致することを
+#         compare で検証する (実 API で変わる項目は case.expect.ignorePaths で除外)
+desc: 蔵書を登録する contract template
+labels:
+  - openapi
+  - books
+  - method:post
+  - operation:createBook
+  - mode:template
+  - contract
+
+runners:
+  req:
+    endpoint: ${RUNNORA_BASE_URL}
+    # モック・実 API どちらの応答も OpenAPI 定義で検証する (モックの定義ずれも検出できる)
+    openapi3: ../../openapi/library-api.yaml
+    skipValidateRequest: true
+
+vars:
+  case: {}
+  expected: {}
+
+steps:
+  call_api:
+    req:
+      /books:
+        post:
+          headers: "{{ vars.case.headers }}"
+          body:
+            application/json: "{{ vars.case.requestBody }}"
+  dump_call_api:
+    dump:
+      expr: steps.call_api.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/post_createBook-{{ vars.case.name }}.json'
+  check_call_api:
+    test: |
+      steps.call_api.res.status == vars.case.expect.status &&
+      compare(steps.call_api.res.body, vars.expected, vars.case.expect.ignorePaths)

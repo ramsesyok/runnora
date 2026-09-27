@@ -1,0 +1,23 @@
+desc: "本を貸し出す suite"
+runnora:
+  id: "GEN-createLoan"
+labels:
+  - generated
+  - openapi
+  - "loans"
+  - method:post
+  - "operation:createLoan"
+  - mode:suite
+
+vars:
+  cases:
+    - "json://../../../cases/generated/loans/post_createLoan/default.json"
+
+steps:
+  run_case:
+    loop:
+      count: len(vars.cases)
+    include:
+      path: "./post_createLoan.template.yml"
+      vars:
+        case: "{{ vars.cases[i] }}"

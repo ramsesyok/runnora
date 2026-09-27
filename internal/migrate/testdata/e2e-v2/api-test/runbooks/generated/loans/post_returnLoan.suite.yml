@@ -1,0 +1,23 @@
+desc: "本を返却する suite"
+runnora:
+  id: "GEN-returnLoan"
+labels:
+  - generated
+  - openapi
+  - "loans"
+  - method:post
+  - "operation:returnLoan"
+  - mode:suite
+
+vars:
+  cases:
+    - "json://../../../cases/generated/loans/post_returnLoan/default.json"
+
+steps:
+  run_case:
+    loop:
+      count: len(vars.cases)
+    include:
+      path: "./post_returnLoan.template.yml"
+      vars:
+        case: "{{ vars.cases[i] }}"

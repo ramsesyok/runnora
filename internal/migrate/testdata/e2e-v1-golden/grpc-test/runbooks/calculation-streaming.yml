@@ -22,10 +22,6 @@ steps:
     greq:
       sample.library.v1.LibraryService/Calculate:
         message: "{{ vars.request }}"
-  dump_calculate:
-    dump:
-      expr: steps.calculate.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/calculation-streaming-calculate.json'
   check_calculate:
     test: |
       steps.calculate.res.status == vars.expected.status &&

@@ -23,10 +23,6 @@ steps:
           headers:
             X-Test-Scenario: LIB-001
           body: null
-  dump_member_before:
-    dump:
-      expr: steps.member_before.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/member_before.json'
   check_member_before:
     test: |
       steps.member_before.res.status == 200 &&
@@ -42,10 +38,6 @@ steps:
           headers:
             X-Test-Scenario: LIB-001
           body: null
-  dump_book_before:
-    dump:
-      expr: steps.book_before.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/book_before.json'
   check_book_before:
     test: |
       steps.book_before.res.status == 200 &&
@@ -63,10 +55,6 @@ steps:
             application/json:
               memberId: M0001
               bookId: B0001
-  dump_create_loan:
-    dump:
-      expr: steps.create_loan.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/create_loan.json'
   check_create_loan:
     test: |
       steps.create_loan.res.status == 201 &&
@@ -100,10 +88,6 @@ steps:
           headers:
             X-Test-Scenario: LIB-001
           body: null
-  dump_book_lent:
-    dump:
-      expr: steps.book_lent.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/book_lent.json'
   check_book_lent:
     test: |
       steps.book_lent.res.status == 200 &&
@@ -130,10 +114,6 @@ steps:
             X-Test-Scenario: LIB-001
           body:
             application/json: {}
-  dump_return_loan:
-    dump:
-      expr: steps.return_loan.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/return_loan.json'
   check_return_loan:
     test: |
       steps.return_loan.res.status == 200 &&
@@ -150,10 +130,6 @@ steps:
             X-Test-Scenario: LIB-001
           body:
             application/json: {}
-  dump_return_again:
-    dump:
-      expr: steps.return_again.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/return_again.json'
   check_return_again:
     test: |
       steps.return_again.res.status == 409 &&
@@ -167,10 +143,6 @@ steps:
           headers:
             X-Test-Scenario: LIB-001
           body: null
-  dump_book_restored:
-    dump:
-      expr: steps.book_restored.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/book_restored.json'
   check_book_restored:
     test: |
       steps.book_restored.res.status == 200 &&
@@ -184,10 +156,6 @@ steps:
           headers:
             X-Test-Scenario: LIB-001
           body: null
-  dump_member_after:
-    dump:
-      expr: steps.member_after.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/member_after.json'
   check_member_after:
     test: |
       steps.member_after.res.status == 200 &&

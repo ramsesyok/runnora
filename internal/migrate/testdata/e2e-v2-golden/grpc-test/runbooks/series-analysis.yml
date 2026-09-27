@@ -1,0 +1,30 @@
+desc: 階層・配列を含む数値計算結果をパス別の許容誤差で比較する
+runnora:
+  id: GRPC-series-analysis
+labels:
+  - grpc
+  - unary
+  - epsilon
+vars:
+  request: json://../cases/series-analysis/request.json
+  expected: json://../cases/series-analysis/expected.json
+runners:
+  greq:
+    addr: ${GRPC_ADDR}
+    tls: false
+    importPaths:
+      - ../proto
+    protos:
+      - ../proto/library.proto
+steps:
+  analyze_series:
+    greq:
+      sample.library.v1.LibraryService/AnalyzeSeries:
+        message: "{{ vars.request }}"
+  check_analyze_series:
+    test: steps.analyze_series.res.status == 0
+
+  compare_without_epsilon:
+    test: '!diffEps(vars.expected, steps.analyze_series.res.message)'
+  compare_with_epsilon:
+    test: 'diffEps(vars.expected, steps.analyze_series.res.message, "cases/series-analysis/tolerances.yaml")'

@@ -1,0 +1,31 @@
+desc: "蔵書を登録する template"
+labels:
+  - generated
+  - openapi
+  - "books"
+  - method:post
+  - "operation:createBook"
+  - mode:template
+
+runners:
+  "req":
+    endpoint: ${RUNNORA_BASE_URL}
+
+vars:
+  case: {}
+
+steps:
+  call_api:
+    "req":
+      "/books":
+        post:
+          headers: "{{ vars.case.headers }}"
+          body:
+            application/json: "{{ vars.case.requestBody }}"
+
+  dump_response:
+    dump:
+      expr: steps.call_api.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/post_createBook-{{ vars.case.name }}.json'
+  check_response:
+    test: steps.call_api.res.status == vars.case.expect.status

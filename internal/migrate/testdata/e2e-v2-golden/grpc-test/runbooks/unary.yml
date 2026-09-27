@@ -1,0 +1,27 @@
+desc: Unary RPC で蔵書を1冊取得する
+runnora:
+  id: GRPC-unary
+labels:
+  - grpc
+  - unary
+vars:
+  request: json://../cases/unary/get-book-request.json
+  expected: json://../cases/unary/get-book-expected.json
+runners:
+  greq:
+    addr: ${GRPC_ADDR}
+    tls: false
+    importPaths:
+      - ../proto
+    protos:
+      - ../proto/library.proto
+steps:
+  get_book:
+    desc: B0003のタイトル、ジャンル、在庫数を確認する
+    greq:
+      sample.library.v1.LibraryService/GetBook:
+        message: "{{ vars.request }}"
+  check_get_book:
+    test: |
+      steps.get_book.res.status == vars.expected.status &&
+      compare(steps.get_book.res.message, vars.expected.message)

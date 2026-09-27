@@ -1,0 +1,44 @@
+desc: Unaryの応答と検索条件の整合を確認してServer streaming RPCを検証する
+runnora:
+  id: GRPC-server-streaming
+labels:
+  - grpc
+  - server-streaming
+vars:
+  get_request: json://../cases/server-streaming/get-book-request.json
+  get_expected: json://../cases/server-streaming/get-book-expected.json
+  list_request: json://../cases/server-streaming/list-books-request.json
+  list_expected: json://../cases/server-streaming/list-books-expected.json
+runners:
+  greq:
+    addr: ${GRPC_ADDR}
+    tls: false
+    importPaths:
+      - ../proto
+    protos:
+      - ../proto/library.proto
+steps:
+  get_book:
+    desc: 検索条件に使う蔵書のジャンルをUnary RPCで取得する
+    greq:
+      sample.library.v1.LibraryService/GetBook:
+        message: "{{ vars.get_request }}"
+  check_get_book:
+    test: |
+      steps.get_book.res.status == vars.get_expected.status &&
+      compare(steps.get_book.res.message, vars.get_expected.message)
+
+  save_genre:
+    desc: Unary応答のジャンルを保存し、JSONファイルの検索条件と照合する
+    bind:
+      genre: steps.get_book.res.message.book.genre
+  list_books:
+    desc: TECHの蔵書がID順に2件流れることを確認する
+    greq:
+      sample.library.v1.LibraryService/ListBooks:
+        message: "{{ vars.list_request }}"
+  check_list_books:
+    test: |
+      steps.list_books.res.status == vars.list_expected.status &&
+      vars.list_request.genre == genre &&
+      compare(steps.list_books.res.messages, vars.list_expected.messages)

@@ -1,0 +1,27 @@
+# runnora のプロジェクトファイル (runnora-migrate で config.yaml から移行し、手で整えたもの)。
+# パスはこのファイルのあるディレクトリ (grpc-test/) を基準にする。
+version: 2
+
+project:
+  name: "runnora-e2e-grpc"
+
+defaults:
+  env: "unit"
+
+environments:
+  unit:
+    description: Go 製 gRPC サーバ (cmd/libraryd)。DB は使わない
+    vars:
+      GRPC_ADDR: "127.0.0.1:19090"
+
+suites:
+  # Unary / Server streaming / 計算 streaming / 系列分析 (runnora-diff で許容誤差付き比較)
+  grpc:
+    select:
+      paths: [runbooks/*.yml]
+
+runn:
+  scopes: [run:exec]   # series-analysis.yml が exec で runnora-diff を呼ぶ
+
+report:
+  format: "text"

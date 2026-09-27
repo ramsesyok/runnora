@@ -7,6 +7,7 @@ labels:
   - epsilon
 vars:
   request: json://../cases/series-analysis/request.json
+  expected: json://../cases/series-analysis/expected.json
 runners:
   greq:
     addr: ${GRPC_ADDR}
@@ -20,22 +21,10 @@ steps:
     greq:
       sample.library.v1.LibraryService/AnalyzeSeries:
         message: "{{ vars.request }}"
-  dump_analyze_series:
-    dump:
-      expr: steps.analyze_series.res
-      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/series-analysis-analyze_series.json'
   check_analyze_series:
     test: steps.analyze_series.res.status == 0
 
   compare_without_epsilon:
-    exec:
-      command: ./bin/runnora-diff.exe --format json cases/series-analysis/expected.json -
-      shell: pwsh -NoProfile -Command {0}
-      stdin: '{{ toJSON(steps.analyze_series.res.message) }} '
-    test: current.exit_code == 1 && fromJSON(current.stdout).summary.differences > 0
+    test: '!diffEps(vars.expected, steps.analyze_series.res.message)'
   compare_with_epsilon:
-    exec:
-      command: ./bin/runnora-diff.exe --config cases/series-analysis/tolerances.yaml cases/series-analysis/expected.json -
-      shell: pwsh -NoProfile -Command {0}
-      stdin: '{{ toJSON(steps.analyze_series.res.message) }} '
-    test: current.stdout == "" && current.stderr == "" && current.exit_code == 0
+    test: 'diffEps(vars.expected, steps.analyze_series.res.message, "cases/series-analysis/tolerances.yaml")'

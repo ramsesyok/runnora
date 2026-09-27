@@ -273,7 +273,7 @@ func checkDumpSteps(res *validateResult, rb *scenario.Runbook, checked map[strin
 	}
 	checked[rb.Path] = true
 	if app.HasDumpStep(rb.Text) {
-		res.warnf(rb.Path, "dump ステップは証跡の自動保存と重複しています (runnora-migrate で削除できます)")
+		res.warnf(rb.Path, "%s", app.DumpWarning(rb.Path))
 	}
 	for _, inc := range scenario.Includes(rb) {
 		if checked[inc] {
