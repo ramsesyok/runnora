@@ -20,39 +20,23 @@ func TestRunCmd_NoRunbooks_ReturnsError(t *testing.T) {
 	}
 }
 
-func TestRunCmd_DefaultConfigFlag_Exists(t *testing.T) {
+func TestRunCmd_ProjectFlags_Exist(t *testing.T) {
 	root := cmd.NewRootCmd()
 	runCmd, _, err := root.Find([]string{"run"})
-	if err != nil {
+	if err != nil || runCmd == nil {
 		t.Fatalf("find run command: %v", err)
 	}
-	if runCmd == nil {
-		t.Fatal("run command not found")
+	for _, name := range []string{"project", "env", "suite", "var"} {
+		if runCmd.Flags().Lookup(name) == nil {
+			t.Errorf("--%s flag not found on run command", name)
+		}
 	}
-	flag := runCmd.Flags().Lookup("config")
-	if flag == nil {
-		t.Fatal("--config flag not found on run command")
-	}
-	if flag.DefValue != "./config.yaml" {
-		t.Errorf("default --config value: got %q, want %q", flag.DefValue, "./config.yaml")
-	}
-}
-
-func TestRunCmd_BeforeSQLFlag_AcceptsMultiple(t *testing.T) {
-	root := cmd.NewRootCmd()
-	runCmd, _, _ := root.Find([]string{"run"})
-	flag := runCmd.Flags().Lookup("before-sql")
-	if flag == nil {
-		t.Fatal("--before-sql flag not found on run command")
-	}
-}
-
-func TestRunCmd_AfterSQLFlag_AcceptsMultiple(t *testing.T) {
-	root := cmd.NewRootCmd()
-	runCmd, _, _ := root.Find([]string{"run"})
-	flag := runCmd.Flags().Lookup("after-sql")
-	if flag == nil {
-		t.Fatal("--after-sql flag not found on run command")
+	// 廃止したフラグは案内を出すために非表示で残している
+	for _, name := range []string{"config", "before-sql", "after-sql"} {
+		f := runCmd.Flags().Lookup(name)
+		if f == nil || !f.Hidden {
+			t.Errorf("--%s should remain as a hidden flag", name)
+		}
 	}
 }
 

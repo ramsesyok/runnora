@@ -7,10 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/ramsesyok/runnora/cmd"
-	"github.com/ramsesyok/runnora/internal/config"
+	"github.com/ramsesyok/runnora/internal/project"
 )
 
 func TestInitCmd_Exists(t *testing.T) {
@@ -26,7 +24,7 @@ func TestInitCmd_Exists(t *testing.T) {
 
 func TestInitCmd_WritesDefaultConfig(t *testing.T) {
 	dir := t.TempDir()
-	outFile := filepath.Join(dir, "config.yaml")
+	outFile := filepath.Join(dir, "runnora.yaml")
 
 	root := cmd.NewRootCmd()
 	root.SetArgs([]string{"init", "--out", outFile})
@@ -42,18 +40,18 @@ func TestInitCmd_WritesDefaultConfig(t *testing.T) {
 		t.Fatalf("ReadFile: %v", err)
 	}
 
-	var cfg config.Config
-	if err := yaml.Unmarshal(content, &cfg); err != nil {
-		t.Fatalf("unmarshal generated config: %v", err)
+	p, err := project.Parse(content)
+	if err != nil {
+		t.Fatalf("generated runnora.yaml is invalid: %v\n%s", err, content)
 	}
-	if cfg.Oracle.DSN != "" {
-		t.Errorf("default oracle.dsn should be empty, got %q", cfg.Oracle.DSN)
+	if p.Defaults.Env != "local" || p.Environments["local"] == nil {
+		t.Errorf("default env: %+v", p.Defaults)
 	}
-	if cfg.Oracle.Driver != "oracle" {
-		t.Errorf("oracle.driver: got %q, want oracle", cfg.Oracle.Driver)
+	if p.Environments["local"].Oracle != nil {
+		t.Errorf("oracle should be commented out without --dsn: %+v", p.Environments["local"].Oracle)
 	}
-	if cfg.Report.Format != "text" {
-		t.Errorf("report.format: got %q, want text", cfg.Report.Format)
+	if p.Report.Format != "text" {
+		t.Errorf("report.format: got %q, want text", p.Report.Format)
 	}
 	if !strings.Contains(out.String(), "created") {
 		t.Errorf("output should mention created file: %q", out.String())
@@ -62,7 +60,7 @@ func TestInitCmd_WritesDefaultConfig(t *testing.T) {
 
 func TestInitCmd_DoesNotOverwriteWithoutForce(t *testing.T) {
 	dir := t.TempDir()
-	outFile := filepath.Join(dir, "config.yaml")
+	outFile := filepath.Join(dir, "runnora.yaml")
 	if err := os.WriteFile(outFile, []byte("existing"), 0o600); err != nil {
 		t.Fatalf("setup file: %v", err)
 	}
@@ -86,7 +84,7 @@ func TestInitCmd_DoesNotOverwriteWithoutForce(t *testing.T) {
 
 func TestInitCmd_ForceOverwritesWithDSN(t *testing.T) {
 	dir := t.TempDir()
-	outFile := filepath.Join(dir, "config.yaml")
+	outFile := filepath.Join(dir, "runnora.yaml")
 	if err := os.WriteFile(outFile, []byte("existing"), 0o600); err != nil {
 		t.Fatalf("setup file: %v", err)
 	}
@@ -104,11 +102,11 @@ func TestInitCmd_ForceOverwritesWithDSN(t *testing.T) {
 		t.Fatalf("ReadFile: %v", err)
 	}
 
-	var cfg config.Config
-	if err := yaml.Unmarshal(content, &cfg); err != nil {
-		t.Fatalf("unmarshal generated config: %v", err)
+	p, err := project.Parse(content)
+	if err != nil {
+		t.Fatalf("generated runnora.yaml is invalid: %v\n%s", err, content)
 	}
-	if cfg.Oracle.DSN != dsn {
-		t.Errorf("oracle.dsn: got %q, want %q", cfg.Oracle.DSN, dsn)
+	if o := p.Environments["local"].Oracle; o == nil || o.DSN != dsn {
+		t.Errorf("oracle.dsn: got %+v, want %q", o, dsn)
 	}
 }

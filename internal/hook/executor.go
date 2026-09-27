@@ -9,8 +9,9 @@ import (
 
 // RunBefore は before フックのファイルリストを指定順序で順番に実行する。
 //
-// ファイルの実行順序は config.BuildBeforeFiles で決定済み:
-//   config の common.before → CLI --before-sql の順に実行される。
+// ファイルの実行順序は Order で決定済み:
+//
+//	環境の hooks.before → runbook の runnora.before の順に実行される。
 //
 // 最初のエラーで即座に停止し、エラーメッセージにはフェーズ名とファイルパスを含める。
 // これにより、ログを見るだけでどのフックが失敗したかを特定できる。
@@ -24,17 +25,31 @@ func RunBefore(ctx context.Context, exec oracle.Executor, files []string) error 
 
 // RunAfter は after フックのファイルリストを指定順序で順番に実行する。
 //
-// ファイルの実行順序は config.BuildAfterFiles で決定済み:
-//   CLI --after-sql → config の common.after の順に実行される。
+// ファイルの実行順序は Order で決定済み:
 //
-// テスト固有のクリーンアップ (--after-sql) を先に行い、
-// その後に共通クリーンアップ (common.after) を実行するという設計。
+//	runbook の runnora.after → 環境の hooks.after の順に実行される。
+//
+// シナリオ固有のクリーンアップを先に行い、
+// その後に共通クリーンアップを実行するという設計。
 //
 // 引数:
 //   - exec: SQL 実行器。oracle.OracleExecutor または テスト用 stub
 //   - files: 実行する SQL/PL/SQL ファイルのパスリスト (順序が重要)
 func RunAfter(ctx context.Context, exec oracle.Executor, files []string) error {
 	return runFiles(ctx, exec, "after", files)
+}
+
+// Order は 1 つの runbook で実行する前後処理のファイル順を組み立てる。
+//
+//	before: 環境の hooks.before → runbook の runnora.before
+//	after:  runbook の runnora.after → 環境の hooks.after
+//
+// 共通のセットアップの後にシナリオ固有のセットアップを行い、
+// シナリオ固有のクリーンアップの後に共通のクリーンアップを行う。
+func Order(envBefore, envAfter, scenarioBefore, scenarioAfter []string) (before, after []string) {
+	before = append(append([]string{}, envBefore...), scenarioBefore...)
+	after = append(append([]string{}, scenarioAfter...), envAfter...)
+	return before, after
 }
 
 // runFiles は RunBefore / RunAfter の共通実装。
