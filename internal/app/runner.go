@@ -24,6 +24,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -37,6 +38,7 @@ import (
 
 	"github.com/k1LoW/runn"
 	"github.com/ramsesyok/runnora/internal/config"
+	"github.com/ramsesyok/runnora/internal/diffeps"
 	"github.com/ramsesyok/runnora/internal/evidence"
 	"github.com/ramsesyok/runnora/internal/hook"
 	"github.com/ramsesyok/runnora/internal/oracle"
@@ -269,10 +271,11 @@ func (r *Runner) Run(ctx context.Context, plan *Plan) (*reporter.Report, error) 
 			continue
 		}
 		warnDump(t.rb)
-		opts := base
-		var capt *evidence.Capturer
+		// 証跡を保存しない場合も、diffEps の記録のために実行中のステップだけを追う
+		mode := evidence.ModeOff
 		scenarioDir := ""
 		if plan.EvidenceDir != "" {
+			mode = plan.EvidenceMode
 			scenarioDir = filepath.Join(plan.EvidenceDir, evidence.SafeName(t.rb.ID))
 			// 旧来の dump ステップ ({{ env.RUNNORA_EVIDENCE_DIR }}/...) も同じフォルダに書かれるようにする
 			if err := os.MkdirAll(scenarioDir, 0o755); err != nil {
@@ -281,21 +284,27 @@ func (r *Runner) Run(ctx context.Context, plan *Plan) (*reporter.Report, error) 
 			if err := r.setenv(EvidenceDirEnv, scenarioDir); err != nil {
 				return nil, &AppError{ExitCode: 2, Cause: fmt.Errorf("set %s: %w", EvidenceDirEnv, err)}
 			}
-			capt = evidence.New(t.rb.ID, plan.EvidenceMode, plan.EvidenceMask)
-			opts = append(append([]runn.Option{}, base...), runn.Capture(capt))
 		}
+		capt := evidence.New(t.rb.ID, mode, plan.EvidenceMask)
+		diffs := diffeps.NewRecorder(plan.Root, capt.CurrentStep)
+		opts := append(append([]runn.Option{}, base...), runn.Capture(capt), runn.Func(diffeps.FuncName, diffs.Func()))
 		out := r.runOne(ctx, t, exec, opts, plan.Root)
 		passed := out.actual == expect
 		res := reporter.RunResult{
 			ID: t.rb.ID, Desc: t.rb.Desc, Path: path, Expect: expect, Actual: out.actual, Passed: passed, Error: out.msg,
 			ElapsedMs: out.elapsed.Milliseconds(), Hooks: out.hooks, Steps: out.steps,
 		}
-		if capt != nil {
+		if scenarioDir != "" {
 			written, err := capt.Flush(scenarioDir, plan.EvidenceDir)
 			if err != nil && plan.Warn != nil {
 				fmt.Fprintf(plan.Warn, "警告: %s の証跡の一部を保存できませんでした: %v\n", t.rb.ID, err)
 			}
 			attachEvidence(res.Steps, written)
+		}
+		if err := attachDiffs(res.Steps, diffs.Calls(), scenarioDir, plan.EvidenceDir); err != nil && plan.Warn != nil {
+			fmt.Fprintf(plan.Warn, "警告: %s の diffEps の差分を保存できませんでした: %v\n", t.rb.ID, err)
+		}
+		if scenarioDir != "" {
 			_ = os.Remove(scenarioDir) // 何も書かなかった場合だけ消える (中身があれば失敗する)
 		}
 		report.Results = append(report.Results, res)
@@ -620,4 +629,60 @@ func sortedKeys(m map[string]string) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// attachDiffs は diffEps の呼び出しのうち差分があったものを、証跡に .diff.json として書き
+// (scenarioDir が空なら書かない)、失敗したステップの Diffs に要約を付ける。
+//
+// ファイル名は <番号>-<キー>.diff.json。同じステップで 2 回目以降は .diff.<n>.json。
+func attachDiffs(steps []reporter.StepResult, calls []diffeps.Call, scenarioDir, evidenceDir string) error {
+	byKey := map[string]int{}
+	for i, s := range steps {
+		if _, ok := byKey[s.Key]; !ok {
+			byKey[s.Key] = i
+		}
+	}
+	var errs []error
+	used := map[string]int{}
+	for _, c := range calls {
+		if c.Result == nil || c.Result.Equal {
+			continue
+		}
+		sum := reporter.DiffSummary{Differences: c.Result.Summary.Differences}
+		for i, d := range c.Result.Differences {
+			if i == reporter.MaxDiffItems {
+				break
+			}
+			sum.Items = append(sum.Items, d)
+		}
+		if scenarioDir != "" {
+			name := fmt.Sprintf("%02d-%s.diff", c.Index, evidence.SafeName(c.Key))
+			used[name]++
+			if n := used[name]; n > 1 {
+				name = fmt.Sprintf("%s.%d", name, n)
+			}
+			path := filepath.Join(scenarioDir, name+".json")
+			b, err := json.MarshalIndent(c.Result, "", "  ")
+			if err == nil {
+				err = os.MkdirAll(scenarioDir, 0o755)
+			}
+			if err == nil {
+				err = os.WriteFile(path, append(b, '\n'), 0o644)
+			}
+			if err != nil {
+				errs = append(errs, err)
+			} else if rel, err := filepath.Rel(evidenceDir, path); err == nil {
+				sum.File = filepath.ToSlash(rel)
+			}
+		}
+		i, ok := byKey[c.Key]
+		if !ok {
+			i, ok = byKey[loopIndex.ReplaceAllString(c.Key, "")]
+		}
+		// 差分があっても、!diffEps(...) のように差分を期待したステップは成功しているので要約を付けない
+		if ok && steps[i].Result == reporter.StepFailure {
+			steps[i].Diffs = append(steps[i].Diffs, sum)
+		}
+	}
+	return errors.Join(errs...)
 }

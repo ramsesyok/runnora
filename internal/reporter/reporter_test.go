@@ -277,3 +277,23 @@ func TestTextReporter_WritesFailedSteps(t *testing.T) {
 		t.Errorf("only failed steps should be listed:\n%s", out)
 	}
 }
+
+// 失敗したステップの diffEps の差分は、件数・最初の差分・全件のファイルを 1 行で出す。
+func TestTextReporter_WritesDiffSummary(t *testing.T) {
+	r := &reporter.Report{Total: 1, Failed: 1, Results: []reporter.RunResult{{
+		ID: "S-1", Path: "a.yml", Expect: "pass", Actual: "fail",
+		Steps: []reporter.StepResult{{Key: "check", Result: reporter.StepFailure, Error: "failed", Diffs: []reporter.DiffSummary{{
+			Differences: 2,
+			Items:       []any{map[string]any{"path": ".a", "kind": "changed", "expected": 1.0, "actual": 1.5}},
+			File:        "S-1/03-check.diff.json",
+		}}}},
+	}}}
+	var buf bytes.Buffer
+	if err := reporter.NewTextReporter(&buf).Write(r); err != nil {
+		t.Fatal(err)
+	}
+	want := "      diffEps: 差分 2 件 (最初: .a changed 期待 1 実際 1.5) 全件: S-1/03-check.diff.json\n"
+	if !strings.Contains(buf.String(), want) {
+		t.Errorf("output:\n%s\nwant line:\n%s", buf.String(), want)
+	}
+}
