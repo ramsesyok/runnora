@@ -174,6 +174,14 @@ func runValidate(projectPath, envFlag string, args []string) (*validateResult, e
 	} else {
 		for _, name := range p.SuiteNames() {
 			s := p.Suites[name]
+			for _, f := range append(append([]string{}, s.Hooks.Before...), s.Hooks.After...) {
+				if strings.Contains(f, "${") {
+					continue // 変数を含むパスは環境によって変わるので確かめない
+				}
+				if _, err := os.Stat(p.Abs(f)); err != nil {
+					res.errorf("suites."+name+".hooks", "SQL ファイルがありません: %s", p.Abs(f))
+				}
+			}
 			rbs, err := scenario.Select(p.Root, s.Select)
 			if err != nil {
 				addJoined(res, "suites."+name, err)

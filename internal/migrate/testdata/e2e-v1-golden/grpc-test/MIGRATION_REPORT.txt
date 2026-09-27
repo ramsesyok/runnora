@@ -1,0 +1,27 @@
+runnora-migrate: <dir>
+
+変更 (6 ファイル):
+  create  runnora.yaml
+          - 環境: unit ← config.yaml
+  modify  runbooks/calculation-streaming.yml
+          - runners の直書きの値を変数に置き換え: GRPC_ADDR
+          - runnora: ブロックを追加 (id: calculation-streaming)
+  modify  runbooks/series-analysis.yml
+          - runners の直書きの値を変数に置き換え: GRPC_ADDR
+          - runnora: ブロックを追加 (id: series-analysis)
+  modify  runbooks/server-streaming.yml
+          - runners の直書きの値を変数に置き換え: GRPC_ADDR
+          - runnora: ブロックを追加 (id: server-streaming)
+  modify  runbooks/unary.yml
+          - runners の直書きの値を変数に置き換え: GRPC_ADDR
+          - runnora: ブロックを追加 (id: unary)
+  delete  config.yaml
+          - runnora.yaml の環境 unit に移行
+
+TODO (4 件):
+  - runnora.yaml: GRPC_ADDR は runbook に直書きされていた値 (127.0.0.1:19090) を環境 unit に入れました。環境ごとに正しい値か確認してください
+  - scripts/build-docs.ps1:11: --config は廃止されました。runnora.yaml を使うので指定を外してください (環境は --env で選ぶ)
+  - scripts/run.ps1:54: --config は廃止されました。runnora.yaml を使うので指定を外してください (環境は --env で選ぶ)
+  - scripts/run.ps1:54: --scopes で許可していたスコープは runnora.yaml の runn.scopes に書けます
+
+書き込みました。git diff で確認し、TODO に対応したあと runnora validate を実行してください。

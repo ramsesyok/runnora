@@ -1,0 +1,39 @@
+desc: 契約 createBook 蔵書を登録する（モック・実APIの両方で実行する）
+runnora:
+  id: post_createBook.suite
+labels:
+  - contract
+  - books
+  - operation:createBook
+
+# ケースごとに include ステップを 1 つずつ並べる。
+#   runn の loop (until なし) は最後の回の失敗しか報告しないため、loop + include でケースを回すと
+#   途中のケースの失敗を見逃す。明示的なステップなら各ケースの失敗がそのまま報告される。
+# case     : 入力と期待ステータス (cases/contract/)
+# expected : 期待する応答本文。oapi2wire がモックの戻り値として返すファイルと同一 (fixtures/responses/)
+
+steps:
+  created:
+    desc: 新しい蔵書 B0900 を登録する
+    include:
+      # json:// の相対パスは include 先 template の位置で解決されるため、template は suite と同じ場所に置く
+      path: ./post_createBook.template.yml
+      vars:
+        case: json://../../cases/contract/books/post_createBook/01_created.json
+        expected: json://../../fixtures/responses/createBook/createBook_default.json
+  duplicate_isbn:
+    desc: B0001 と同じ ISBN は 409
+    include:
+      # json:// の相対パスは include 先 template の位置で解決されるため、template は suite と同じ場所に置く
+      path: ./post_createBook.template.yml
+      vars:
+        case: json://../../cases/contract/books/post_createBook/02_duplicate_isbn.json
+        expected: json://../../fixtures/responses/createBook/createBook_duplicate_isbn.json
+  invalid_isbn:
+    desc: 13 桁でない ISBN は 400
+    include:
+      # json:// の相対パスは include 先 template の位置で解決されるため、template は suite と同じ場所に置く
+      path: ./post_createBook.template.yml
+      vars:
+        case: json://../../cases/contract/books/post_createBook/03_invalid_isbn.json
+        expected: json://../../fixtures/responses/createBook/createBook_invalid_isbn.json

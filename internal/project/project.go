@@ -92,6 +92,9 @@ type Suite struct {
 	Env    string            `yaml:"env"`
 	Select Selection         `yaml:"select"`
 	Vars   map[string]string `yaml:"vars"`
+	// Hooks はこのスイートを実行するときだけ、環境の共通フックの内側で実行する SQL。
+	// 同じ runbook を複数の環境で流し、一部の環境でだけ前提データを作る場合に使う。
+	Hooks Hooks `yaml:"hooks"`
 }
 
 // Selection はスイートの対象 runbook の条件。

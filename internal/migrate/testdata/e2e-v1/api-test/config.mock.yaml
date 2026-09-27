@@ -1,0 +1,12 @@
+# WireMock (oapi2wire 生成モック) 向け設定。DB フックは使わない。
+app:
+  name: runnora-e2e-mock
+oracle:
+  driver: oracle
+  dsn: ""
+hooks:
+  common:
+    before: []
+    after: []
+report:
+  format: text

@@ -1,0 +1,29 @@
+desc: "会員と貸出状況を取得する template"
+labels:
+  - generated
+  - openapi
+  - "members"
+  - method:get
+  - "operation:getMember"
+  - mode:template
+
+runners:
+  "req":
+    endpoint: ${RUNNORA_BASE_URL}
+
+vars:
+  case: {}
+
+steps:
+  call_api:
+    "req":
+      "/members/{{ vars.case.pathParams.memberId }}":
+        get:
+          headers: "{{ vars.case.headers }}"
+
+  dump_response:
+    dump:
+      expr: steps.call_api.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/get_getMember-{{ vars.case.name }}.json'
+  check_response:
+    test: steps.call_api.res.status == vars.case.expect.status

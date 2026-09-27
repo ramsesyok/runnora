@@ -1,0 +1,30 @@
+desc: DEMO 事後処理の整合性検証がDB不整合を検知できることの確認（exit 4 が期待値）
+# 実行: runnora run --config config.yaml --after-sql sql/cases/demo_break_invariant_after.sql <this>
+# runbook 自体は成功するが、--after-sql で在庫数を壊すため common.after の
+# 90_verify_integrity.sql が RAISE_APPLICATION_ERROR を投げ、runnora は exit 4 で終了する。
+labels:
+  - demo
+runners:
+  req:
+    endpoint: http://127.0.0.1:18081
+    # 応答を OpenAPI 定義で自動検証する。異常系の入力を送るためリクエスト側の検証は行わない
+    openapi3: ../../openapi/library-api.yaml
+    skipValidateRequest: true
+steps:
+  health:
+    desc: APIとDBが稼働していることを確認する
+    req:
+      /health:
+        get:
+          headers:
+            X-Test-Scenario: DEMO
+          body: null
+  dump_health:
+    dump:
+      expr: steps.health.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/health.json'
+  check_health:
+    test: |
+      steps.health.res.status == 200 &&
+      steps.health.res.body.status == "UP" &&
+      steps.health.res.body.database == "UP"

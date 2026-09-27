@@ -153,6 +153,7 @@ generate:                          # 旧 config.yaml の generate セクショ�
 | `suites.<名前>.select.labels` | []string | | どれか 1 つを持つ runbook に絞る |
 | `suites.<名前>.select.ids` | []string | | `runnora.id` で絞る。指定した順に実行する |
 | `suites.<名前>.vars` | map[string]string | | 環境の変数を上書きする |
+| `suites.<名前>.hooks.before` / `after` | []string | | このスイートを実行するときだけ、環境の共通フックの内側で実行する SQL（2026-09-27 追加。→ 5.3） |
 | `runn.scopes` | []string | | runn に追加で許可するスコープ。`read:parent` は常に付ける |
 | `runn.trace` | bool | | runn のトレース |
 | `report.format` / `output` | string | | 旧 `report` と同じ |
@@ -209,9 +210,23 @@ steps:
 ### 5.3 前後処理の実行順
 
 ```text
-[before] 環境の hooks.before → runbook の runnora.before
+[before] 環境の hooks.before → スイートの hooks.before → runbook の runnora.before
          runbook 実行
-[after]  runbook の runnora.after → 環境の hooks.after
+[after]  runbook の runnora.after → スイートの hooks.after → 環境の hooks.after
+```
+
+スイートの `hooks` は `--suite` で実行したときだけ使う（2026-09-27 追加）。同じ runbook を複数の環境で流し、一部の環境でだけ前提データを作る場合に使う。runbook の `runnora:` ブロックに書くとすべての環境で実行されてしまうため。
+
+```yaml
+suites:
+  contract-mock:
+    env: mock
+    select: { paths: [runbooks/contract/*.suite.yml] }
+  contract-unit:
+    env: unit
+    select: { paths: [runbooks/contract/*.suite.yml] }
+    hooks:
+      before: [sql/cases/contract_setup.sql]   # 実 DB にモックと同じ前提データを作る
 ```
 
 いまの「共通 → 固有」の順を保つ。CLI の `--before-sql` / `--after-sql` は**廃止する**（2026-09-26 決定）。前後処理は必ず `runnora.yaml` か runbook の `runnora:` ブロックに書くので、実行した内容と docgen の手順書が常に一致する。その場限りの SQL を足したいときは、ブロックを一時的に書き換えるか、使い捨ての環境を `runnora.yaml` に追加する。
@@ -412,4 +427,5 @@ runnora 本体は旧形式を読まない（連携設計の 9 章）。
 | `list` | 列に `scenario`（`runnora.id`）と `suites` を追加。JSON では `scenario` / `suites` |
 | `generate` | `--out` の既定値は `generate.out_dir`、なければプロジェクトルート（`runnora.yaml` がなければカレントディレクトリ） |
 | `init` | `runnora.yaml` の雛形を作る。`--dsn` を指定しなければ `oracle` / `hooks` はコメントで出力する |
+| スイートの前後処理 | runnora-e2e の契約テスト（モックと実 API の両方で流し、実 API のときだけ前提データを作る）を移行する際に必要になり追加した。`Resolve` で環境の共通フックと合わせて 1 つの層にする |
 | テスト用の Oracle CI | `test/runnora.yaml` と `plsql` スイートで実行し、JSON レポートで期待どおりのフック失敗（`ORA-20001`）を確認する |

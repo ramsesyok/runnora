@@ -1,0 +1,53 @@
+# runnora-migrate が config.yaml / config.mock.yaml から生成したプロジェクトファイル。
+# パスはこのファイルのあるディレクトリを基準にする。
+version: 2
+
+project:
+  name: "runnora-e2e"
+
+defaults:
+  env: "unit"
+
+environments:
+  unit:
+    # config.yaml から移行
+    vars:
+      API_URL: "http://127.0.0.1:18081"  # runbook から取り出した値。環境に合わせて確認する
+      ORACLE_DSN: "oracle://libapp:libapp_pw@127.0.0.1:1522/FREEPDB1"  # パスワードは ${ORACLE_PASSWORD} のように OS の環境変数から渡すことを推奨
+      RUNNORA_BASE_URL: "http://127.0.0.1:18081"  # シナリオ対応表から (スクリプトが渡していた値)
+    oracle:
+      dsn: "${ORACLE_DSN}"
+      max_open_conns: 5
+      max_idle_conns: 2
+      conn_max_lifetime_sec: 300
+    hooks:
+      before:
+        - "sql/common/00_reset.sql"
+        - "sql/common/10_seed_master.sql"
+      after:
+        - "sql/common/90_verify_integrity.sql"
+  mock:
+    # config.mock.yaml から移行
+    vars:
+      API_URL: "http://127.0.0.1:18080"  # シナリオ対応表から (スクリプトが渡していた値)
+      RUNNORA_BASE_URL: "http://127.0.0.1:18080"  # シナリオ対応表から (スクリプトが渡していた値)
+
+# シナリオ対応表の suites から移行
+suites:
+  contract-mock:
+    env: mock
+    select:
+      paths: [runbooks/contract/*.suite.yml]
+  contract-unit:
+    env: unit
+    select:
+      paths: [runbooks/contract/*.suite.yml]
+    hooks:
+      before: [sql/cases/contract_setup.sql]
+  scenarios:
+    env: unit
+    select:
+      paths: [runbooks/scenarios/*.yml, runbooks/demo/*.yml]
+
+report:
+  format: "text"

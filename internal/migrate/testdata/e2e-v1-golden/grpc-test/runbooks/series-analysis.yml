@@ -1,0 +1,41 @@
+desc: 階層・配列を含む数値計算結果をパス別の許容誤差で比較する
+runnora:
+  id: series-analysis
+labels:
+  - grpc
+  - unary
+  - epsilon
+vars:
+  request: json://../cases/series-analysis/request.json
+runners:
+  greq:
+    addr: ${GRPC_ADDR}
+    tls: false
+    importPaths:
+      - ../proto
+    protos:
+      - ../proto/library.proto
+steps:
+  analyze_series:
+    greq:
+      sample.library.v1.LibraryService/AnalyzeSeries:
+        message: "{{ vars.request }}"
+  dump_analyze_series:
+    dump:
+      expr: steps.analyze_series.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/series-analysis-analyze_series.json'
+  check_analyze_series:
+    test: steps.analyze_series.res.status == 0
+
+  compare_without_epsilon:
+    exec:
+      command: ./bin/runnora-diff.exe --format json cases/series-analysis/expected.json -
+      shell: pwsh -NoProfile -Command {0}
+      stdin: '{{ toJSON(steps.analyze_series.res.message) }} '
+    test: current.exit_code == 1 && fromJSON(current.stdout).summary.differences > 0
+  compare_with_epsilon:
+    exec:
+      command: ./bin/runnora-diff.exe --config cases/series-analysis/tolerances.yaml cases/series-analysis/expected.json -
+      shell: pwsh -NoProfile -Command {0}
+      stdin: '{{ toJSON(steps.analyze_series.res.message) }} '
+    test: current.stdout == "" && current.stderr == "" && current.exit_code == 0

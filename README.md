@@ -150,7 +150,7 @@ runnora run [options] --suite <name>
 | `--fail-fast` | — | 最初の失敗で停止する |
 | `--scopes` | — | runn に追加で許可するスコープ（例: `run:exec`。複数指定可） |
 
-`--config`、`--before-sql`、`--after-sql` は廃止しました。指定すると移行を案内して終了コード 2 で終了します。前後処理の SQL は `runnora.yaml` の `environments.<名前>.hooks` か、runbook の `runnora:` ブロックに書きます。
+`--config`、`--before-sql`、`--after-sql` は廃止しました。指定すると移行を案内して終了コード 2 で終了します。旧形式のプロジェクトは [runnora-migrate](docs/migrate.md) で移行できます。前後処理の SQL は `runnora.yaml` の `environments.<名前>.hooks` か、runbook の `runnora:` ブロックに書きます。
 
 **変数:** runbook の `${NAME}` は、次の優先順で決まる値に展開されます (runn の記法のまま。`${NAME:-既定値}` も使えます)。
 
@@ -164,10 +164,12 @@ runnora run [options] --suite <name>
 **PL/SQL フックの実行順序:**
 
 ```
-[before] 環境の hooks.before → runbook の runnora.before
+[before] 環境の hooks.before → スイートの hooks.before → runbook の runnora.before
          runbook 実行
-[after]  runbook の runnora.after → 環境の hooks.after
+[after]  runbook の runnora.after → スイートの hooks.after → 環境の hooks.after
 ```
+
+スイートの `hooks` は `--suite` で実行したときだけ使います。同じ runbook を複数の環境で流し、一部の環境でだけ前提データを作る場合に使います。
 
 **runnora: ブロック:**
 
@@ -498,6 +500,8 @@ suites:
       ids: [LIB-001, LIB-004]              # ID で絞り、この順に実行する
     vars:                                 # 環境の vars を上書きする
       TOLERANCE_RULES: rules/integration.yaml
+    hooks:                                # このスイートを実行するときだけの前後処理
+      before: [sql/cases/integration_setup.sql]
 
 runn:
   scopes: [run:exec]                   # runn に追加で許可するスコープ
@@ -531,4 +535,5 @@ MIT License
 - [チュートリアル一覧](docs/index.md)
 - [基本設計書](docs/basic-design-runnora.md)（`config.yaml` と `--before-sql` / `--after-sql` の記述は旧形式。新形式は下の詳細設計を参照）
 - [新形式 (v2) 詳細設計](docs/design/format-v2.md)
+- [runnora-migrate：旧形式から新形式への移行](docs/migrate.md)
 - [ツール群 連携設計（方針）](docs/integration-design.md)

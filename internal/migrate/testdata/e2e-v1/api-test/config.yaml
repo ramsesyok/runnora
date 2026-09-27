@@ -1,0 +1,23 @@
+# 実 API (Go + Oracle) 向け設定。
+# runbook ごとに common.before でデータを初期化し、common.after で DB の不変条件を検証する。
+# DSN はローカル検証用コンテナ (docker-compose.yml) の値。runnora は DSN のテンプレート展開をしないため直書きする。
+app:
+  name: runnora-e2e
+
+oracle:
+  driver: oracle
+  dsn: "oracle://libapp:libapp_pw@127.0.0.1:1522/FREEPDB1"
+  max_open_conns: 5
+  max_idle_conns: 2
+  conn_max_lifetime_sec: 300
+
+hooks:
+  common:
+    before:
+      - "./sql/common/00_reset.sql"
+      - "./sql/common/10_seed_master.sql"
+    after:
+      - "./sql/common/90_verify_integrity.sql"
+
+report:
+  format: "text"

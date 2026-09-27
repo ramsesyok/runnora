@@ -1,0 +1,20 @@
+desc: LIB-001 貸出中一覧の再照会と応答保存
+runners:
+  req:
+    endpoint: http://127.0.0.1:18081
+    openapi3: ../../openapi/library-api.yaml
+    skipValidateRequest: true
+vars:
+  attempt: 0
+steps:
+  fetch:
+    req:
+      /members/M0001/loans?status=ACTIVE:
+        get:
+          headers:
+            X-Test-Scenario: LIB-001
+          body: null
+  dump_response:
+    dump:
+      expr: steps.fetch.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/member_loans-{{ vars.attempt }}.json'

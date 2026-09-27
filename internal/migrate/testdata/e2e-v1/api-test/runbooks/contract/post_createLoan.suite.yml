@@ -1,0 +1,45 @@
+desc: 契約 createLoan 本を貸し出す（モック・実APIの両方で実行する）
+labels:
+  - contract
+  - loans
+  - operation:createLoan
+
+# ケースごとに include ステップを 1 つずつ並べる。
+#   runn の loop (until なし) は最後の回の失敗しか報告しないため、loop + include でケースを回すと
+#   途中のケースの失敗を見逃す。明示的なステップなら各ケースの失敗がそのまま報告される。
+# case     : 入力と期待ステータス (cases/contract/)
+# expected : 期待する応答本文。oapi2wire がモックの戻り値として返すファイルと同一 (fixtures/responses/)
+
+steps:
+  created:
+    desc: M0001 が B0001 を借りる
+    include:
+      # json:// の相対パスは include 先 template の位置で解決されるため、template は suite と同じ場所に置く
+      path: ./post_createLoan.template.yml
+      vars:
+        case: json://../../cases/contract/loans/post_createLoan/01_created.json
+        expected: json://../../fixtures/responses/createLoan/createLoan_default.json
+  member_suspended:
+    desc: 利用停止中の M0003 は 409
+    include:
+      # json:// の相対パスは include 先 template の位置で解決されるため、template は suite と同じ場所に置く
+      path: ./post_createLoan.template.yml
+      vars:
+        case: json://../../cases/contract/loans/post_createLoan/02_member_suspended.json
+        expected: json://../../fixtures/responses/createLoan/createLoan_member_suspended.json
+  book_not_found:
+    desc: 存在しない蔵書は 404
+    include:
+      # json:// の相対パスは include 先 template の位置で解決されるため、template は suite と同じ場所に置く
+      path: ./post_createLoan.template.yml
+      vars:
+        case: json://../../cases/contract/loans/post_createLoan/03_book_not_found.json
+        expected: json://../../fixtures/responses/createLoan/createLoan_book_not_found.json
+  missing_book_id:
+    desc: bookId なしは 400
+    include:
+      # json:// の相対パスは include 先 template の位置で解決されるため、template は suite と同じ場所に置く
+      path: ./post_createLoan.template.yml
+      vars:
+        case: json://../../cases/contract/loans/post_createLoan/04_missing_book_id.json
+        expected: json://../../fixtures/responses/createLoan/createLoan_missing_book_id.json

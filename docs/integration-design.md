@@ -300,13 +300,18 @@ frontend-mock/
 
 | 対象 | 方法 |
 |---|---|
-| `dump` ステップと `RUNNORA_EVIDENCE_DIR` の削除 | 自動 |
-| `exec: runnora-diff`（jsondiff-eps）を `diffEps()` に置き換え | 自動。変則的な書き方は TODO として報告 |
+| `dump` ステップと `RUNNORA_EVIDENCE_DIR` の削除 | 自動（実施順 3 の実装後に追加する） |
+| `exec: runnora-diff`（jsondiff-eps）を `diffEps()` に置き換え | 自動（実施順 3 の実装後に追加する）。変則的な書き方は TODO として報告 |
 | 直書きの endpoint と DSN を変数に置き換え | 自動で抽出し、`runnora.yaml` の環境の候補を生成 |
 | `config.yaml` から `runnora.yaml` へ | 自動 |
-| スクリプト内のシナリオと SQL の対応を `runnora:` ブロックへ | 半自動。空のブロックを挿入し、TODO 一覧を出す |
+| スクリプト内のシナリオと SQL の対応を `runnora:` ブロックへ | 半自動。人が書き写した**シナリオ対応表**から入れる。対応表にない runbook には空のブロックを挿入し、TODO 一覧を出す |
+| スクリプトが環境変数で渡していた値、runbook をまとめて実行していた単位 | シナリオ対応表から環境の `vars` と `suites` に入れる |
 | `runbooks/generated/` | 移行しない（再生成する） |
 | `mock-cases.yaml` と応答 JSON | 変更なし |
+
+使い方と対応表の書き方は [runnora-migrate](migrate.md) を参照。
+
+runnora-e2e を移行する過程で、「同じスイートを複数の環境で流し、一部の環境でだけ前提データを作る」書き方が必要だと分かり、スイートの前後処理（`suites.<名前>.hooks`）を新形式に追加した（2026-09-27。[format-v2](design/format-v2.md) の 5.3）。
 
 動作の原則:
 
@@ -329,8 +334,8 @@ frontend-mock/
 | 1 | すぐ直す：grpc-test の runnora-diff ビルド、oapi2wire の mapping id を安定化、e2e README の古い記述 | 対応済み（各リポジトリの作業ブランチ） |
 | 2 | 新形式を固める：`runnora.yaml`、`runnora:` ブロック、変数展開、`version: 2` | 実装済み（[format-v2](design/format-v2.md)。実装で決めた細部は同書の 14 章） |
 | 3 | runtime：証跡の自動保存、`diffEps()` の内蔵、ステップ単位の JSON レポート、サマリー HTML | |
-| 4 | e2e を新形式に書き直す（見本と移行の実例） | |
-| 5 | `runnora-migrate` を作り、先行チームへ適用する | |
+| 4 | e2e を新形式に書き直す（見本と移行の実例） | 実施順 5 の後に行う（2026-09-27 に順序を入れ替え）。runnora-migrate で書き換えてから TODO を手で仕上げる |
+| 5 | `runnora-migrate` を作り、先行チームへ適用する | 作成済み（[runnora-migrate](migrate.md)）。e2e の `format-v1` を入力にしたゴールデンテストあり。先行チームへの適用はこれから |
 | 6 | 契約ケースとモック参照の統一、suite の導出、OpenAPI の静的検査、サンプル生成の共通化と改善（リクエスト・レスポンスを別ファイルに、制約に沿った値に） | サンプル生成は詳細設計済み（[sample-generation](design/sample-generation.md)） |
 | 7 | docgen の入力を新形式に切り替える | |
 | 8 | `generate --proto`（proto からリクエスト・期待値の雛形を生成）、JSON Schema、VSCode 拡張 | proto のサンプル生成は詳細設計済み（[sample-generation](design/sample-generation.md)） |

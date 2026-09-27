@@ -1,0 +1,11 @@
+app:
+  name: runnora-e2e-grpc
+oracle:
+  driver: oracle
+  dsn: ""
+hooks:
+  common:
+    before: []
+    after: []
+report:
+  format: text

@@ -45,6 +45,13 @@ suites:
       ids: [LIB-001]
     vars:
       TOLERANCE_RULES: rules/integration.yaml
+  contract-unit:
+    env: unit
+    select:
+      paths: [runbooks/contract/*.suite.yml]
+    hooks:
+      before: [sql/cases/contract_setup.sql]
+      after: [sql/cases/contract_cleanup.sql]
 report:
   format: json
   output: ${REPORT_DIR:-reports}/result.json
@@ -274,6 +281,30 @@ func TestResolveOracleHooksAndReport(t *testing.T) {
 	}
 	if mock.HasOracle || len(mock.Before) != 0 {
 		t.Errorf("mock env should have no oracle or hooks: %+v", mock)
+	}
+}
+
+func TestResolveSuiteHooksWrapEnvironmentHooks(t *testing.T) {
+	p := mustParse(t, sampleYAML)
+	abs := func(rel string) string { return filepath.Join(p.Root, filepath.FromSlash(rel)) }
+
+	res, err := p.Resolve("unit", "contract-unit", nil, noEnv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantBefore := []string{abs("sql/common/00_reset.sql"), abs("sql/cases/contract_setup.sql")}
+	wantAfter := []string{abs("sql/cases/contract_cleanup.sql"), abs("sql/common/90_verify.sql")}
+	if !reflect.DeepEqual(res.Before, wantBefore) || !reflect.DeepEqual(res.After, wantAfter) {
+		t.Errorf("before=%v after=%v, want %v %v", res.Before, res.After, wantBefore, wantAfter)
+	}
+
+	// スイートなしで同じ環境を使うと、スイートの前後処理は入らない
+	plain, err := p.Resolve("unit", "", nil, noEnv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plain.Before) != 1 || len(plain.After) != 1 {
+		t.Errorf("suite hooks leaked: %v %v", plain.Before, plain.After)
 	}
 }
 
