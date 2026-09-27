@@ -18,9 +18,9 @@ import (
 func writeReportRunbook(t *testing.T, assertion string) (string, string) {
 	t.Helper()
 	dir := t.TempDir()
-	configPath := filepath.Join(dir, "config.yaml")
+	configPath := filepath.Join(dir, "runnora.yaml")
 	bookPath := filepath.Join(dir, "book.yml")
-	if err := os.WriteFile(configPath, []byte("app: {name: report-test}\n"), 0o600); err != nil {
+	if err := os.WriteFile(configPath, []byte("version: 2\nproject: {name: report-test}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(bookPath, []byte("steps:\n  check:\n    test: "+assertion+"\n"), 0o600); err != nil {
@@ -42,7 +42,7 @@ func TestRunCmd_ReportFormatOnStdoutAndFile(t *testing.T) {
 				var stdout, stderr bytes.Buffer
 				root.SetOut(&stdout)
 				root.SetErr(&stderr)
-				args := []string{"run", "--config", configPath, "--report-format", format}
+				args := []string{"run", "--project", configPath, "--report-format", format}
 				outPath := filepath.Join(t.TempDir(), "report")
 				if toFile {
 					args = append(args, "--report-out", outPath)
@@ -75,7 +75,7 @@ func TestRunCmd_ReportFormatOnStdoutAndFile(t *testing.T) {
 					if err := json.Unmarshal(content, &got); err != nil {
 						t.Fatalf("unexpected JSON report: %v %q", err, content)
 					}
-					if got.Total != 1 || got.Passed != 1 || got.Failed != 0 || len(got.Results) != 1 || got.Results[0].Path != bookPath || !got.Results[0].Passed {
+					if got.Total != 1 || got.Passed != 1 || got.Failed != 0 || len(got.Results) != 1 || got.Results[0].Path != "book.yml" || !got.Results[0].Passed {
 						t.Fatalf("incorrect JSON results: %+v", got)
 					}
 				} else {
@@ -92,7 +92,8 @@ func TestRunCmd_ReportFormatOnStdoutAndFile(t *testing.T) {
 					if err := xml.Unmarshal(content, &got); err != nil {
 						t.Fatalf("unexpected JUnit report: %v %q", err, content)
 					}
-					if got.Tests != 1 || got.Failures != 0 || len(got.Suite.Cases) != 1 || got.Suite.Cases[0].Name != bookPath {
+					// runnora: ブロックのない runbook の ID はプロジェクトルートからのパス (拡張子なし)
+					if got.Tests != 1 || got.Failures != 0 || len(got.Suite.Cases) != 1 || got.Suite.Cases[0].Name != "book" {
 						t.Fatalf("incorrect JUnit results: %+v", got)
 					}
 				}
@@ -105,7 +106,7 @@ func TestRunCmd_FailureStillWritesJUnitReport(t *testing.T) {
 	configPath, bookPath := writeReportRunbook(t, "false")
 	outPath := filepath.Join(t.TempDir(), "failed.xml")
 	root := cmd.NewRootCmd()
-	root.SetArgs([]string{"run", "--config", configPath, "--report-format", "junit", "--report-out", outPath, bookPath})
+	root.SetArgs([]string{"run", "--project", configPath, "--report-format", "junit", "--report-out", outPath, bookPath})
 	root.SetErr(&bytes.Buffer{})
 	var stdout bytes.Buffer
 	root.SetOut(&stdout)
@@ -132,7 +133,7 @@ func TestRunCmd_FailureStillWritesJUnitReport(t *testing.T) {
 	if err := xml.Unmarshal(content, &got); err != nil {
 		t.Fatalf("invalid JUnit report: %v %q", err, content)
 	}
-	if got.Failures != 1 || len(got.Suite.Cases) != 1 || got.Suite.Cases[0].Name != bookPath || got.Suite.Cases[0].Failure == nil || got.Suite.Cases[0].Failure.Message == "" || got.Suite.Cases[0].Failure.Detail == "" {
+	if got.Failures != 1 || len(got.Suite.Cases) != 1 || got.Suite.Cases[0].Name != "book" || got.Suite.Cases[0].Failure == nil || got.Suite.Cases[0].Failure.Message == "" || got.Suite.Cases[0].Failure.Detail == "" {
 		t.Fatalf("failed runbook missing from JUnit report: %+v", got)
 	}
 }
@@ -141,7 +142,7 @@ func TestRunCmd_UnsupportedFormatFailsBeforeExecution(t *testing.T) {
 	configPath, bookPath := writeReportRunbook(t, "true")
 	outPath := filepath.Join(t.TempDir(), "invalid.xml")
 	root := cmd.NewRootCmd()
-	root.SetArgs([]string{"run", "--config", configPath, "--report-format", "yaml", "--report-out", outPath, bookPath})
+	root.SetArgs([]string{"run", "--project", configPath, "--report-format", "yaml", "--report-out", outPath, bookPath})
 	root.SetErr(&bytes.Buffer{})
 	var appErr *app.AppError
 	if err := root.Execute(); !errors.As(err, &appErr) || appErr.ExitCode != 2 || !strings.Contains(err.Error(), "unsupported report format") {
@@ -155,7 +156,7 @@ func TestRunCmd_UnsupportedFormatFailsBeforeExecution(t *testing.T) {
 func TestRunCmd_ConfigReportAndFlagOverride(t *testing.T) {
 	configPath, bookPath := writeReportRunbook(t, "true")
 	configuredPath := filepath.Join(t.TempDir(), "configured.xml")
-	configData := fmt.Sprintf("report:\n  format: junit\n  output: %q\n", configuredPath)
+	configData := fmt.Sprintf("version: 2\nreport:\n  format: junit\n  output: %q\n", configuredPath)
 	if err := os.WriteFile(configPath, []byte(configData), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +165,7 @@ func TestRunCmd_ConfigReportAndFlagOverride(t *testing.T) {
 	var stdout bytes.Buffer
 	root.SetOut(&stdout)
 	root.SetErr(&bytes.Buffer{})
-	root.SetArgs([]string{"run", "--config", configPath, bookPath})
+	root.SetArgs([]string{"run", "--project", configPath, bookPath})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +181,7 @@ func TestRunCmd_ConfigReportAndFlagOverride(t *testing.T) {
 	stdout.Reset()
 	root.SetOut(&stdout)
 	root.SetErr(&bytes.Buffer{})
-	root.SetArgs([]string{"run", "--config", configPath, "--report-format", "json", "--report-out", "", bookPath})
+	root.SetArgs([]string{"run", "--project", configPath, "--report-format", "json", "--report-out", "", bookPath})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}

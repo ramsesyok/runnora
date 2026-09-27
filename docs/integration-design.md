@@ -65,6 +65,13 @@ runnora / oapi2wire / runnora-diff / runnora-docgen / runnora-e2e のベータ�
 - 別 CLI のまま規約だけ整える案は、課題 B・D が残り、利用者ごとに接着剤を作ることになるため採らない。
 - 5 つを 1 リポジトリ・1 バイナリにする案は、Quarto 依存や WireMock（Java）周りが中核に入り、リリースが重くなるため採らない。
 
+### runnora が扱う範囲
+
+runnora が扱うのは、テストの実行・判定・証跡・モック・文書の原稿までとする（2026-09-27 決定）。**テスト対象の環境の起動**（DB、API・gRPC サーバ、WireMock の起動と停止、応答するまでの待ち合わせ）は扱わず、docker compose・CI・短いスクリプトに任せる。
+
+- プロセス管理、ログ、後始末、OS ごとの違いを runnora が抱えると、docker compose や CI の機能と重なるため。
+- 新形式に書き直した runnora-e2e（実施順 4）を、「残るスクリプトは環境の起動だけ」という最小の見本にする。README に、スクリプトが残る範囲とその理由を書く。
+
 ## 4. テストレベル
 
 | レベル | 対象（実物） | 差し替えるもの | 主な検証 |
@@ -320,7 +327,7 @@ frontend-mock/
 | # | 内容 | 状態 |
 |---|---|---|
 | 1 | すぐ直す：grpc-test の runnora-diff ビルド、oapi2wire の mapping id を安定化、e2e README の古い記述 | 対応済み（各リポジトリの作業ブランチ） |
-| 2 | 新形式を固める：`runnora.yaml`、`runnora:` ブロック、変数展開、`version: 2` | 詳細設計済み（[format-v2](design/format-v2.md)）。実装は未着手 |
+| 2 | 新形式を固める：`runnora.yaml`、`runnora:` ブロック、変数展開、`version: 2` | 実装済み（[format-v2](design/format-v2.md)。実装で決めた細部は同書の 14 章） |
 | 3 | runtime：証跡の自動保存、`diffEps()` の内蔵、ステップ単位の JSON レポート、サマリー HTML | |
 | 4 | e2e を新形式に書き直す（見本と移行の実例） | |
 | 5 | `runnora-migrate` を作り、先行チームへ適用する | |

@@ -99,14 +99,24 @@ jobs:
           echo "test API did not become ready" >&2
           exit 1
 
+      - name: Validate test project
+        working-directory: test
+        run: ../runnora-ci validate
+
       - name: Verify before and after PL/SQL hooks
         working-directory: test
         shell: bash
         run: |
-          ../runnora-ci run --config ./config.yaml \
-            --before-sql ./sql/plsql/seed_with_cursor.sql \
-            --after-sql ./sql/plsql/cleanup_with_exception.sql \
-            ./runbooks/plsql_hook_verify.yaml
+          # plsql スイート (runnora.yaml) を実行する。
+          #   PLSQL-AFTER-HOOK-FAILURE: 0 件の状態で事後処理の PL/SQL 例外が起きることを期待する (expect: hookFail)
+          #   PLSQL-HOOK-VERIFY:        事前処理で 3 件投入し、事後処理で削除する
+          ../runnora-ci run --suite plsql --report-format json --report-out plsql-report.json
+          cat plsql-report.json
+
+          jq -e '.failed == 0 and .passed == 2' plsql-report.json
+          jq -e '.results[] | select(.id == "PLSQL-AFTER-HOOK-FAILURE")
+                 | .expect == "hookFail" and .actual == "hookFail" and (.error | contains("ORA-20001"))' plsql-report.json
+          jq -e '.results[] | select(.id == "PLSQL-HOOK-VERIFY") | .actual == "pass"' plsql-report.json
 
           docker exec -i oracle-free sqlplus -s "/ as sysdba" <<'SQL'
           WHENEVER SQLERROR EXIT FAILURE
@@ -122,26 +132,6 @@ jobs:
           /
           EXIT
           SQL
-
-      - name: Verify after PL/SQL failure is reported
-        working-directory: test
-        shell: bash
-        run: |
-          set +e
-          output=$(../runnora-ci run --config ./config.yaml \
-            --after-sql ./sql/plsql/cleanup_with_exception.sql \
-            ./runbooks/health_check.yaml 2>&1)
-          status=$?
-          set -e
-          printf '%s\n' "$output"
-          if [ "$status" -ne 4 ]; then
-            echo "expected after-hook failure exit code 4, got $status" >&2
-            exit 1
-          fi
-          if ! grep -q 'ORA-20001' <<<"$output"; then
-            echo "expected the PL/SQL application error from the after hook" >&2
-            exit 1
-          fi
 
       - name: Oracle logs on failure
         if: failure()

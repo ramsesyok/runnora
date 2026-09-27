@@ -1,0 +1,31 @@
+# runnora 動作確認テスト環境のプロジェクトファイル。
+# パスはこのファイルのあるディレクトリ (test/) を基準にする。
+version: 2
+
+project:
+  name: runnora-test
+
+defaults:
+  env: local
+
+environments:
+  local:
+    description: docker compose の Oracle Free と testapi / testgrpc
+    vars:
+      API_URL: http://localhost:8081
+      # 検証用コンテナのパスワード。別の値を使う場合は環境変数 TEST_ORACLE_PASSWORD で上書きする
+      ORACLE_DSN: oracle://testuser:${TEST_ORACLE_PASSWORD:-TestPass1!}@localhost:1521/FREEPDB1
+    oracle:
+      dsn: ${ORACLE_DSN}
+      max_open_conns: 5
+    hooks:                     # すべての runbook の前後で実行する
+      before: [sql/common/before.sql]
+      after: [sql/common/after.sql]
+
+suites:
+  plsql:                       # PL/SQL フックの動作確認 (runnora: ブロックを持つ runbook)
+    select:
+      paths: [runbooks/plsql_*.yaml]
+
+report:
+  format: text

@@ -19,16 +19,28 @@ type junitSuites struct {
 }
 
 type junitSuite struct {
-	Name     string          `xml:"name,attr"`
-	Tests    int             `xml:"tests,attr"`
-	Failures int             `xml:"failures,attr"`
-	Cases    []junitTestCase `xml:"testcase"`
+	Name       string          `xml:"name,attr"`
+	Tests      int             `xml:"tests,attr"`
+	Failures   int             `xml:"failures,attr"`
+	Skipped    int             `xml:"skipped,attr,omitempty"`
+	Properties *junitProps     `xml:"properties,omitempty"`
+	Cases      []junitTestCase `xml:"testcase"`
+}
+
+type junitProps struct {
+	Items []junitProp `xml:"property"`
+}
+
+type junitProp struct {
+	Name  string `xml:"name,attr"`
+	Value string `xml:"value,attr"`
 }
 
 type junitTestCase struct {
 	Name      string        `xml:"name,attr"`
 	ClassName string        `xml:"classname,attr"`
 	Failure   *junitFailure `xml:"failure,omitempty"`
+	Skipped   *struct{}     `xml:"skipped,omitempty"`
 }
 
 type junitFailure struct {
@@ -37,13 +49,36 @@ type junitFailure struct {
 }
 
 func (j *JUnitReporter) Write(r *Report) error {
-	suite := junitSuite{Name: "runnora", Tests: r.Total, Failures: r.Failed}
+	suite := junitSuite{Name: "runnora", Tests: r.Total, Failures: r.Failed, Skipped: r.Skipped}
+	if r.Project != "" {
+		suite.Name = r.Project
+	}
+	var props []junitProp
+	if r.Env != nil {
+		props = append(props, junitProp{Name: "env", Value: r.Env.Name})
+	}
+	if r.Suite != "" {
+		props = append(props, junitProp{Name: "suite", Value: r.Suite})
+	}
+	if len(props) > 0 {
+		suite.Properties = &junitProps{Items: props}
+	}
 	for _, result := range r.Results {
-		entry := junitTestCase{Name: result.Path, ClassName: "runbook"}
+		// ID があれば testcase の name に使い、runbook のパスは classname に入れる。
+		entry := junitTestCase{Name: result.Name(), ClassName: "runbook"}
+		if result.ID != "" {
+			entry.ClassName = result.Path
+		}
+		if result.Actual == "skipped" {
+			entry.Skipped = &struct{}{}
+		}
 		if !result.Passed {
 			detail := result.Error
 			if detail == "" {
 				detail = "runbook failed"
+			}
+			if result.Expect != "" && result.Expect != "pass" {
+				detail = "expected " + result.Expect + ", got " + result.Actual + ": " + detail
 			}
 			message, _, _ := strings.Cut(detail, "\n")
 			entry.Failure = &junitFailure{Message: message, Detail: detail}

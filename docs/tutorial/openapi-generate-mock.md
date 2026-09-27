@@ -57,7 +57,7 @@ curl -L -o docs/tools/wiremock-standalone-3.13.2.jar \
 practice/
 ├─ runbooks/generated/pet/
 ├─ cases/generated/pet/
-├─ config.yaml
+├─ runnora.yaml
 ├─ mock-cases.yaml
 ├─ mock-responses/
 └─ wiremock-out/
@@ -71,7 +71,7 @@ practice/
 |---|---|
 | `practice/runbooks/generated/pet/` | runnora が API を呼ぶ template / suite runbook |
 | `practice/cases/generated/pet/` | runnora が送るリクエスト値と期待値 |
-| `practice/config.yaml` | runnora run 用の設定ファイル |
+| `practice/runnora.yaml` | runnora run 用のプロジェクトファイル |
 | `practice/mock-cases.yaml` | WireMock の返し分け条件 |
 | `practice/mock-responses/` | WireMock が返すレスポンス body |
 | `practice/wiremock-out/` | WireMock が読み込む生成済みファイル |
@@ -427,30 +427,32 @@ java -jar docs/tools/wiremock-standalone-3.13.2.jar \
 
 runnora の接続先を WireMock に向けます。
 
-`runnora run` はデフォルトで `./config.yaml` を読み込みます。このチュートリアルではリポジトリ直下ではなく `practice/config.yaml` を使います。SQL フックを使わないため、`oracle.dsn` は空のままで構いません。
+`runnora run` は、カレントディレクトリから親へ向かって見つけたプロジェクトファイル `runnora.yaml` を読み込みます。このチュートリアルではリポジトリ直下ではなく `practice/runnora.yaml` を作り、`--project` で指定します。SQL フックを使わないため、`oracle` はコメントのままで構いません。
+
+`RUNNORA_BASE_URL` は `runnora.yaml` の `environments.local.vars` にも書けます。同じ名前の OS の環境変数があれば、そちらが優先されます。
 
 ```bash
-runnora init --out practice/config.yaml --force
+runnora init --out practice/runnora.yaml --force
 ```
 
 PowerShell:
 
 ```powershell
 $env:RUNNORA_BASE_URL = "http://localhost:8080"
-runnora run --config practice/config.yaml practice/runbooks/generated/pet/get_getPetById.suite.yml
+runnora run --project practice/runnora.yaml practice/runbooks/generated/pet/get_getPetById.suite.yml
 ```
 
 Bash:
 
 ```bash
 export RUNNORA_BASE_URL="http://localhost:8080"
-runnora run --config practice/config.yaml practice/runbooks/generated/pet/get_getPetById.suite.yml
+runnora run --project practice/runnora.yaml practice/runbooks/generated/pet/get_getPetById.suite.yml
 ```
 
 `findPetsByStatus` も確認します。
 
 ```bash
-runnora run --config practice/config.yaml practice/runbooks/generated/pet/get_findPetsByStatus.suite.yml
+runnora run --project practice/runnora.yaml practice/runbooks/generated/pet/get_findPetsByStatus.suite.yml
 ```
 
 成功したら、次の対応が取れています。

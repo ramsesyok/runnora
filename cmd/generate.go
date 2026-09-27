@@ -1,9 +1,7 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -25,7 +23,7 @@ import (
 //  3. サマリーを stdout に出力
 func newGenerateCmd() *cobra.Command {
 	var (
-		configPath          string
+		projectPath         string
 		openAPIPath         string
 		outDir              string
 		tagsStr             string
@@ -54,9 +52,18 @@ func newGenerateCmd() *cobra.Command {
 生成物は再生成前提で手編集禁止。手編集が必要な runbook は
 runbooks/evidence/ にコピーして育てる運用を推奨する。`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// 設定ファイルを読み込み、CLI フラグで上書きする
+			// 引数の解析が済んだ後のエラーでは使い方を表示しない (エラーが読みにくくなるため)
+			cmd.SilenceUsage = true
+			if err := rejectLegacyFlags(cmd); err != nil {
+				return err
+			}
+			// runnora.yaml を読み込み、CLI フラグで上書きする
+			lp, err := loadProject(projectPath, cmd.ErrOrStderr())
+			if err != nil {
+				return err
+			}
 			opts, err := buildGenerateOptions(
-				configPath, openAPIPath, outDir, tagsStr, operationIDsStr,
+				lp, openAPIPath, outDir, tagsStr, operationIDsStr,
 				mode, caseFormat, caseStyle, server, runnerName,
 				clean, force, skipDeprecated, emitManifest, emitResponseExample,
 			)
@@ -78,9 +85,9 @@ runbooks/evidence/ にコピーして育てる運用を推奨する。`,
 	}
 
 	// --- フラグ定義 ---
-	cmd.Flags().StringVar(&configPath, "config", "./config.yaml", "設定ファイルパス")
+	cmd.Flags().StringVar(&projectPath, "project", "", "runnora.yaml のパス (省略時はカレントディレクトリから親へ探す)")
 	cmd.Flags().StringVar(&openAPIPath, "openapi", "", "OpenAPI ファイルパス (YAML/JSON)")
-	cmd.Flags().StringVar(&outDir, "out", "", "生成物の出力基底ディレクトリ (デフォルト: config の out_dir または .)")
+	cmd.Flags().StringVar(&outDir, "out", "", "生成物の出力基底ディレクトリ (デフォルト: runnora.yaml の generate.out_dir、なければプロジェクトルート)")
 	cmd.Flags().StringVar(&tagsStr, "tags", "", "生成対象タグ (カンマ区切り): 例 users,orders")
 	cmd.Flags().StringVar(&operationIDsStr, "operation-ids", "", "生成対象 operationId (カンマ区切り)")
 	cmd.Flags().StringVar(&mode, "mode", "", "生成モード: shallow (デフォルト)")
@@ -94,121 +101,78 @@ runbooks/evidence/ にコピーして育てる運用を推奨する。`,
 	cmd.Flags().BoolVar(&emitManifest, "emit-manifest", false, "manifest.json を生成する")
 	cmd.Flags().BoolVar(&emitResponseExample, "emit-response-example", false, "(非推奨) レスポンス example は常に case に含まれるため効果なし")
 	_ = cmd.Flags().MarkDeprecated("emit-response-example", "レスポンス example は指定しなくても常に case JSON の expect.body に含まれます。今後のリリースで削除します")
+	addLegacyFlags(cmd, "config")
 
 	return cmd
 }
 
-// buildGenerateOptions は設定ファイルと CLI フラグをマージして GenerateOptions を返す。
+// buildGenerateOptions は runnora.yaml の generate セクションと CLI フラグをマージして GenerateOptions を返す。
 //
-// マージ規則 (設計書 §15.3):
-//   - config の generate セクションを基準とする
-//   - CLI で指定されたフラグは config より優先する
+// マージ規則:
+//   - runnora.yaml の generate セクションを基準とする (パスはプロジェクトルート基準)
+//   - CLI で指定されたフラグは runnora.yaml より優先する (パスはカレントディレクトリ基準)
+//   - runnora.yaml がなければ既定値を使う
 func buildGenerateOptions(
-	configPath, openAPIPath, outDir, tagsStr, operationIDsStr,
+	lp *loadedProject, openAPIPath, outDir, tagsStr, operationIDsStr,
 	mode, caseFormat, caseStyle, server, runnerName string,
 	clean, force, skipDeprecated, emitManifest, emitResponseExample bool,
 ) (*config.GenerateOptions, error) {
-	// 設定ファイルを読み込む (存在しなければデフォルト値のみ使う)
-	cfg, cfgErr := loadConfigOrDefault(configPath)
-	if cfgErr != nil && !errors.Is(cfgErr, os.ErrNotExist) {
-		return nil, cfgErr
+	var gen config.GenerateConfig
+	if lp.P != nil {
+		gen = lp.P.Generate
+	}
+	fromProject := func(path string) string {
+		if path == "" || lp.P == nil {
+			return path
+		}
+		return lp.P.Abs(path)
 	}
 
 	opts := &config.GenerateOptions{
-		ConfigPath:          configPath,
-		Clean:               clean,
+		Clean:               clean || gen.CleanGenerated,
 		Force:               force,
 		SkipDeprecated:      skipDeprecated,
-		EmitManifest:        emitManifest,
+		EmitManifest:        emitManifest || gen.EmitManifest,
 		EmitResponseExample: emitResponseExample,
+		Server:              server,
+	}
+	if lp.P != nil {
+		opts.ProjectPath = lp.P.Path
 	}
 
-	// OpenAPI パス: CLI > config
-	if openAPIPath != "" {
-		opts.OpenAPIPath = openAPIPath
-	} else if cfgErr == nil {
-		opts.OpenAPIPath = cfg.Generate.OpenAPI
-	}
+	// OpenAPI パス: CLI > runnora.yaml
+	opts.OpenAPIPath = firstNonEmpty(openAPIPath, fromProject(gen.OpenAPI))
 	if opts.OpenAPIPath == "" {
-		return nil, fmt.Errorf("generate: --openapi または config の generate.openapi を指定してください")
+		return nil, fmt.Errorf("generate: --openapi または runnora.yaml の generate.openapi を指定してください")
 	}
-
-	// 出力ディレクトリ: CLI > config > "."
-	if outDir != "" {
-		opts.OutDir = outDir
-	} else if cfgErr == nil && cfg.Generate.OutDir != "" {
-		opts.OutDir = cfg.Generate.OutDir
-	} else {
-		opts.OutDir = "."
+	// 出力ディレクトリ: CLI > runnora.yaml > プロジェクトルート (なければ ".")
+	defaultOut := "."
+	if lp.P != nil {
+		defaultOut = lp.P.Root
 	}
+	opts.OutDir = firstNonEmpty(outDir, fromProject(gen.OutDir), defaultOut)
+	opts.Mode = firstNonEmpty(mode, gen.Mode, "shallow")
+	opts.CaseFormat = firstNonEmpty(caseFormat, gen.CaseFormat, "json")
+	opts.CaseStyle = firstNonEmpty(caseStyle, gen.CaseStyle, "bundled")
+	opts.RunnerName = firstNonEmpty(runnerName, gen.RunnerName, "req")
 
-	// mode: CLI > config > "shallow"
-	if mode != "" {
-		opts.Mode = mode
-	} else if cfgErr == nil && cfg.Generate.Mode != "" {
-		opts.Mode = cfg.Generate.Mode
-	} else {
-		opts.Mode = "shallow"
-	}
-
-	// case-format: CLI > config > "json"
-	if caseFormat != "" {
-		opts.CaseFormat = caseFormat
-	} else if cfgErr == nil && cfg.Generate.CaseFormat != "" {
-		opts.CaseFormat = cfg.Generate.CaseFormat
-	} else {
-		opts.CaseFormat = "json"
-	}
-
-	// case-style: CLI > config > "bundled"
-	if caseStyle != "" {
-		opts.CaseStyle = caseStyle
-	} else if cfgErr == nil && cfg.Generate.CaseStyle != "" {
-		opts.CaseStyle = cfg.Generate.CaseStyle
-	} else {
-		opts.CaseStyle = "bundled"
-	}
-
-	// runner-name: CLI > config > "req"
-	if runnerName != "" {
-		opts.RunnerName = runnerName
-	} else if cfgErr == nil && cfg.Generate.RunnerName != "" {
-		opts.RunnerName = cfg.Generate.RunnerName
-	} else {
-		opts.RunnerName = "req"
-	}
-
-	// emit-manifest: CLI OR config
-	if cfgErr == nil && cfg.Generate.EmitManifest {
-		opts.EmitManifest = true
-	}
-
-	// clean: CLI OR config
-	if cfgErr == nil && cfg.Generate.CleanGenerated {
-		opts.Clean = true
-	}
-
-	// server
-	opts.Server = server
-
-	// tags フィルタ (カンマ区切り → slice)
+	// tags / operationIDs フィルタ (カンマ区切り → slice)
 	if tagsStr != "" {
 		opts.Tags = splitTrim(tagsStr)
 	}
-
-	// operationIDs フィルタ
 	if operationIDsStr != "" {
 		opts.OperationIDs = splitTrim(operationIDsStr)
 	}
-
-	// GenerateOptions を generate パッケージの型に変換して返す
 	return opts, nil
 }
 
-// loadConfigOrDefault は設定ファイルを読み込む。
-// ファイルが存在しない場合は呼び出し元がデフォルト値を使う。
-func loadConfigOrDefault(path string) (*config.Config, error) {
-	return config.Load(path)
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // splitTrim はカンマ区切り文字列を trim して slice に変換する。

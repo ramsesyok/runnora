@@ -3,6 +3,8 @@ package reporter
 import (
 	"fmt"
 	"io"
+	"sort"
+	"strings"
 )
 
 // TextReporter はテキスト形式でレポートを出力する。
@@ -27,26 +29,105 @@ func NewTextReporter(w io.Writer) *TextReporter {
 
 // Write は Report をテキスト形式で出力する。
 //
-// サマリー行を出力した後、失敗した runbook の詳細を FAIL: パス形式で出力する。
-// 成功した runbook は詳細出力しない (サマリーのカウントのみ)。
+// 環境やスイートの情報があれば先頭に出力し、サマリー行の後に次を出力する。
+//   - 期待どおりでなかった runbook (FAIL:)
+//   - 期待どおりに失敗した runbook (PASS: ... (expected ...))
+//   - 環境の対象外で実行しなかった runbook (SKIP:)
+//
+// 期待どおりに成功した runbook は詳細を出力しない (サマリーのカウントのみ)。
 func (t *TextReporter) Write(r *Report) error {
-	if _, err := fmt.Fprintf(t.w, "Runbooks: %d, Passed: %d, Failed: %d\n", r.Total, r.Passed, r.Failed); err != nil {
+	if err := t.writeHeader(r); err != nil {
+		return err
+	}
+	summary := fmt.Sprintf("Runbooks: %d, Passed: %d, Failed: %d", r.Total, r.Passed, r.Failed)
+	if r.Skipped > 0 {
+		summary += fmt.Sprintf(", Skipped: %d", r.Skipped)
+	}
+	if _, err := fmt.Fprintln(t.w, summary); err != nil {
 		return err
 	}
 	for _, res := range r.Results {
-		if !res.Passed {
-			if _, err := fmt.Fprintf(t.w, "  FAIL: %s\n", res.Path); err != nil {
-				return err
-			}
-			if res.Error != "" {
+		var err error
+		switch {
+		case !res.Passed:
+			_, err = fmt.Fprintf(t.w, "  FAIL: %s%s\n", describe(res), mismatch(res))
+			if err == nil && res.Error != "" {
 				// エラー詳細を 4 スペースインデントで出力する
-				if _, err := fmt.Fprintf(t.w, "    Error: %s\n", res.Error); err != nil {
-					return err
-				}
+				_, err = fmt.Fprintf(t.w, "    Error: %s\n", res.Error)
 			}
+		case res.Actual == "skipped":
+			_, err = fmt.Fprintf(t.w, "  SKIP: %s (この環境は対象外)\n", describe(res))
+		case res.Actual != "" && res.Actual != "pass":
+			_, err = fmt.Fprintf(t.w, "  PASS: %s (expected %s)\n", describe(res), res.Actual)
+		}
+		if err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func (t *TextReporter) writeHeader(r *Report) error {
+	var parts []string
+	if r.Project != "" {
+		parts = append(parts, "Project: "+r.Project)
+	}
+	if r.Env != nil {
+		env := "Env: " + r.Env.Name
+		if r.Env.Description != "" {
+			env += " (" + r.Env.Description + ")"
+		}
+		parts = append(parts, env)
+	}
+	if r.Suite != "" {
+		parts = append(parts, "Suite: "+r.Suite)
+	}
+	if len(parts) > 0 {
+		if _, err := fmt.Fprintln(t.w, strings.Join(parts, ", ")); err != nil {
+			return err
+		}
+	}
+	if len(r.Backends) > 0 {
+		names := make([]string, 0, len(r.Backends))
+		for k := range r.Backends {
+			names = append(names, k)
+		}
+		sort.Strings(names)
+		items := make([]string, 0, len(names))
+		for _, k := range names {
+			b := r.Backends[k]
+			item := k + "=" + b.Mode
+			if b.Note != "" {
+				item += " (" + b.Note + ")"
+			}
+			items = append(items, item)
+		}
+		if _, err := fmt.Fprintf(t.w, "Backends: %s\n", strings.Join(items, ", ")); err != nil {
+			return err
+		}
+	}
+	if r.Env != nil && len(r.Env.Overrides) > 0 {
+		if _, err := fmt.Fprintf(t.w, "Env overrides: %s\n", strings.Join(r.Env.Overrides, ", ")); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// describe は runbook を "ID (パス)" の形で表す。ID がなければパスだけ。
+func describe(res RunResult) string {
+	if res.ID != "" && res.ID != res.Path {
+		return res.ID + " (" + res.Path + ")"
+	}
+	return res.Path
+}
+
+// mismatch は期待と実際が異なるときに " [expected X, got Y]" を返す。
+func mismatch(res RunResult) string {
+	if res.Expect == "" || res.Actual == "" || res.Expect == "pass" {
+		return ""
+	}
+	return fmt.Sprintf(" [expected %s, got %s]", res.Expect, res.Actual)
 }
 
 // Close は何もしない。

@@ -3,17 +3,22 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 
 	"github.com/k1LoW/runn"
 	"github.com/spf13/cobra"
+
+	"github.com/ramsesyok/runnora/internal/scenario"
 )
 
 // listEntry は一覧表示の 1 行分のデータを表す。
 // JSON 出力にも使うため json タグを付与している。
 type listEntry struct {
 	ID         string   `json:"id"`
+	Scenario   string   `json:"scenario,omitempty"` // runnora: ブロックの id
+	Suites     []string `json:"suites,omitempty"`   // この runbook を選ぶ runnora.yaml のスイート
 	Desc       string   `json:"desc,omitempty"`
 	Labels     []string `json:"labels,omitempty"`
 	If         string   `json:"if,omitempty"`
@@ -27,8 +32,9 @@ type listEntry struct {
 // runn.LoadOnly() を使うことで runbook の内容を解析するだけで実際には実行しない。
 func newListCmd() *cobra.Command {
 	var (
-		long   bool
-		format string
+		long        bool
+		format      string
+		projectPath string
 	)
 
 	cmd := &cobra.Command{
@@ -57,17 +63,31 @@ func newListCmd() *cobra.Command {
 				return fmt.Errorf("list: select: %w", err)
 			}
 
+			// runnora.yaml があれば、各スイートが選ぶ runbook を調べる
+			lp, err := loadProject(projectPath, cmd.ErrOrStderr())
+			if err != nil {
+				return err
+			}
+			suitesOf := suiteMembership(lp, cmd.ErrOrStderr())
+
 			// オペレータから listEntry に変換する
 			entries := make([]*listEntry, 0, len(selected))
 			for _, o := range selected {
-				entries = append(entries, &listEntry{
+				e := &listEntry{
 					ID:         o.ID(),
 					Desc:       o.Desc(),
 					Labels:     o.Labels(),
 					If:         o.If(),
 					StepsCount: o.NumberOfSteps(),
 					Path:       o.BookPath(),
-				})
+				}
+				if rb, err := scenario.Read(o.BookPath(), lp.Root); err == nil {
+					if rb.Meta != nil {
+						e.Scenario = rb.ID
+					}
+					e.Suites = suitesOf[rb.Path]
+				}
+				entries = append(entries, e)
 			}
 
 			// JSON 形式出力
@@ -84,23 +104,23 @@ func newListCmd() *cobra.Command {
 			w := cmd.OutOrStdout()
 			if long {
 				// --long: フル ID (UUID 形式 44 文字) を表示する
-				fmt.Fprintf(w, "%-44s  %-30s  %5s  %s\n", "id", "desc", "steps", "path")
-				fmt.Fprintf(w, "%-44s  %-30s  %5s  %s\n",
-					strings.Repeat("-", 44), strings.Repeat("-", 30), "-----", strings.Repeat("-", 20))
+				fmt.Fprintf(w, "%-44s  %-16s  %-30s  %5s  %-20s  %s\n", "id", "scenario", "desc", "steps", "suites", "path")
+				fmt.Fprintf(w, "%-44s  %-16s  %-30s  %5s  %-20s  %s\n",
+					strings.Repeat("-", 44), strings.Repeat("-", 16), strings.Repeat("-", 30), "-----", strings.Repeat("-", 20), strings.Repeat("-", 20))
 				for _, e := range entries {
-					fmt.Fprintf(w, "%-44s  %-30s  %5d  %s\n", e.ID, e.Desc, e.StepsCount, e.Path)
+					fmt.Fprintf(w, "%-44s  %-16s  %-30s  %5d  %-20s  %s\n", e.ID, e.Scenario, e.Desc, e.StepsCount, strings.Join(e.Suites, ","), e.Path)
 				}
 			} else {
 				// 通常: ID を先頭 8 文字に短縮して表示する
-				fmt.Fprintf(w, "%-8s  %-30s  %5s  %s\n", "id", "desc", "steps", "path")
-				fmt.Fprintf(w, "%-8s  %-30s  %5s  %s\n",
-					"--------", strings.Repeat("-", 30), "-----", strings.Repeat("-", 20))
+				fmt.Fprintf(w, "%-8s  %-16s  %-30s  %5s  %-20s  %s\n", "id", "scenario", "desc", "steps", "suites", "path")
+				fmt.Fprintf(w, "%-8s  %-16s  %-30s  %5s  %-20s  %s\n",
+					"--------", strings.Repeat("-", 16), strings.Repeat("-", 30), "-----", strings.Repeat("-", 20), strings.Repeat("-", 20))
 				for _, e := range entries {
 					id := e.ID
 					if len(id) > 8 {
 						id = id[:8]
 					}
-					fmt.Fprintf(w, "%-8s  %-30s  %5d  %s\n", id, e.Desc, e.StepsCount, e.Path)
+					fmt.Fprintf(w, "%-8s  %-16s  %-30s  %5d  %-20s  %s\n", id, e.Scenario, e.Desc, e.StepsCount, strings.Join(e.Suites, ","), e.Path)
 				}
 			}
 
@@ -110,6 +130,27 @@ func newListCmd() *cobra.Command {
 
 	cmd.Flags().BoolVarP(&long, "long", "l", false, "フル ID とパスを表示する")
 	cmd.Flags().StringVar(&format, "format", "", "出力形式 (json)")
+	cmd.Flags().StringVar(&projectPath, "project", "", "runnora.yaml のパス (省略時はカレントディレクトリから親へ探す)")
 
 	return cmd
+}
+
+// suiteMembership は runbook の絶対パスごとに、それを選ぶスイート名の一覧を返す。
+// スイートの条件を評価できない場合は警告を出して、そのスイートを除く。
+func suiteMembership(lp *loadedProject, stderr io.Writer) map[string][]string {
+	out := map[string][]string{}
+	if lp.P == nil {
+		return out
+	}
+	for _, name := range lp.P.SuiteNames() {
+		rbs, err := scenario.Select(lp.Root, lp.P.Suites[name].Select)
+		if err != nil {
+			fmt.Fprintf(stderr, "警告: スイート %s: %v\n", name, err)
+			continue
+		}
+		for _, rb := range rbs {
+			out[rb.Path] = append(out[rb.Path], name)
+		}
+	}
+	return out
 }

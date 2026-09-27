@@ -58,7 +58,7 @@ func Open(cfg *config.OracleConfig) (*sql.DB, error) {
 	}
 
 	// 接続プールのパラメータを設定する。
-	// cfg の値が 0 の場合は config.applyDefaults でデフォルト値が適用されているため、
+	// cfg の値が 0 の場合は project.Resolve でデフォルト値が適用されているため、
 	// ここでは > 0 チェックで十分 (明示的に 0 を指定したケースでも安全)。
 	if cfg.MaxOpenConns > 0 {
 		db.SetMaxOpenConns(cfg.MaxOpenConns)
