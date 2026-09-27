@@ -33,8 +33,15 @@ runn:
   trace: false
 
 report:
-  format: text
+  format: text                     # 画面に出す形式 (text / json / junit)
   output: ""
+  dir: reports                     # 実行ごとのフォルダ (<日時>-<スイート名>/) を作る場所。.gitignore に入れる
+
+evidence:                          # 証跡の自動保存 (reports/<日時>-<スイート名>/evidence/)
+  mode: response                   # response: 応答だけ / full: リクエストと応答
+  mask:                            # Authorization・Cookie などは設定しなくても隠す
+    headers: []                    # 追加で隠すヘッダ
+    paths: []                      # 本文の JSON で隠す場所 (jq 形式。例: .password)
 
 generate:
   openapi: ""

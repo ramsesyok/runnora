@@ -118,6 +118,14 @@ jobs:
                  | .expect == "hookFail" and .actual == "hookFail" and (.error | contains("ORA-20001"))' plsql-report.json
           jq -e '.results[] | select(.id == "PLSQL-HOOK-VERIFY") | .actual == "pass"' plsql-report.json
 
+          # 実行ごとのフォルダ (reports/<日時>-plsql/) に report.json と証跡が保存されていること
+          run_dir=$(ls -d reports/*-plsql | tail -n 1)
+          ls -R "$run_dir"
+          jq -e '.suite == "plsql" and .evidenceDir == "evidence"' "$run_dir/report.json"
+          ev="$run_dir/evidence/PLSQL-HOOK-VERIFY"
+          jq -e '.runner == "db" and .response.results[0].rows[0].CNT == "3"' "$ev/01-check_seeded_count.json"
+          jq -e '.runner == "http" and .response.status == 200 and (.response.body | length) == 3' "$ev/02-list_seeded_users.json"
+
           docker exec -i oracle-free sqlplus -s "/ as sysdba" <<'SQL'
           WHENEVER SQLERROR EXIT FAILURE
           ALTER SESSION SET CONTAINER = FREEPDB1;

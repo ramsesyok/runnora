@@ -26,13 +26,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/k1LoW/runn"
 	"github.com/ramsesyok/runnora/internal/config"
+	"github.com/ramsesyok/runnora/internal/evidence"
 	"github.com/ramsesyok/runnora/internal/hook"
 	"github.com/ramsesyok/runnora/internal/oracle"
 	"github.com/ramsesyok/runnora/internal/project"
@@ -161,6 +164,14 @@ type Plan struct {
 	Trace bool
 	// FailFast は最初の不合格で残りを実行しない。
 	FailFast bool
+	// EvidenceDir は証跡の保存先 (絶対パス)。"" なら保存しない。runbook ごとに <EvidenceDir>/<シナリオID>/ に書く。
+	EvidenceDir string
+	// EvidenceMode は証跡に書く範囲 (response / full)。
+	EvidenceMode evidence.Mode
+	// EvidenceMask は証跡で隠すもの。nil なら決まったヘッダだけを隠す。
+	EvidenceMask *evidence.Mask
+	// Warn は警告の出力先 (dump ステップの重複など)。nil なら出さない。
+	Warn io.Writer
 }
 
 // target は 1 つの runbook と、その前後処理のファイル。
@@ -238,6 +249,7 @@ func (r *Runner) Run(ctx context.Context, plan *Plan) (*reporter.Report, error) 
 	}
 
 	base := baseRunnOptions(plan)
+	warnDump := dumpWarner(plan.Warn, plan.Root)
 	for _, t := range targets {
 		path := displayPath(plan.Root, t.rb.Path)
 		expect := t.rb.Expect()
@@ -249,11 +261,38 @@ func (r *Runner) Run(ctx context.Context, plan *Plan) (*reporter.Report, error) 
 			})
 			continue
 		}
-		actual, errMsg := r.runOne(ctx, t, exec, base)
+		warnDump(t.rb)
+		opts := base
+		var capt *evidence.Capturer
+		scenarioDir := ""
+		if plan.EvidenceDir != "" {
+			scenarioDir = filepath.Join(plan.EvidenceDir, evidence.SafeName(t.rb.ID))
+			// 旧来の dump ステップ ({{ env.RUNNORA_EVIDENCE_DIR }}/...) も同じフォルダに書かれるようにする
+			if err := os.MkdirAll(scenarioDir, 0o755); err != nil {
+				return nil, &AppError{ExitCode: 5, Cause: fmt.Errorf("evidence: %w", err)}
+			}
+			if err := r.setenv(EvidenceDirEnv, scenarioDir); err != nil {
+				return nil, &AppError{ExitCode: 2, Cause: fmt.Errorf("set %s: %w", EvidenceDirEnv, err)}
+			}
+			capt = evidence.New(t.rb.ID, plan.EvidenceMode, plan.EvidenceMask)
+			opts = append(append([]runn.Option{}, base...), runn.Capture(capt))
+		}
+		actual, errMsg := r.runOne(ctx, t, exec, opts)
 		passed := actual == expect
-		report.Results = append(report.Results, reporter.RunResult{
+		res := reporter.RunResult{
 			ID: t.rb.ID, Path: path, Expect: expect, Actual: actual, Passed: passed, Error: errMsg,
-		})
+		}
+		if capt != nil {
+			written, err := capt.Flush(scenarioDir, plan.EvidenceDir)
+			if err != nil && plan.Warn != nil {
+				fmt.Fprintf(plan.Warn, "警告: %s の証跡の一部を保存できませんでした: %v\n", t.rb.ID, err)
+			}
+			for _, w := range written {
+				res.Evidence = append(res.Evidence, reporter.EvidenceFile{Key: w.Key, Path: w.Path})
+			}
+			_ = os.Remove(scenarioDir) // 何も書かなかった場合だけ消える (中身があれば失敗する)
+		}
+		report.Results = append(report.Results, res)
 		if passed {
 			report.Passed++
 		} else {
@@ -334,6 +373,57 @@ func (r *Runner) runOne(ctx context.Context, t target, exec oracle.Executor, bas
 		actual = scenario.OutcomeFail
 	}
 	return actual, msg
+}
+
+// EvidenceDirEnv は旧来の dump ステップが証跡の保存先として参照する環境変数。
+// 証跡を自動保存するときは、runbook ごとにそのシナリオの証跡フォルダを設定する。
+const EvidenceDirEnv = "RUNNORA_EVIDENCE_DIR"
+
+// dumpStepPattern は runbook の dump ステップ (steps の中の "dump:" キー) に一致する。
+var dumpStepPattern = regexp.MustCompile(`(?m)^\s+dump:\s*(#.*)?$`)
+
+// HasDumpStep は runbook の文字列が dump ステップを含むかを返す (コメント行は除く)。
+func HasDumpStep(text string) bool {
+	for _, line := range strings.Split(text, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "#") {
+			continue
+		}
+		if dumpStepPattern.MatchString(line) {
+			return true
+		}
+	}
+	return false
+}
+
+// dumpWarner は、dump ステップを持つ runbook (include 先を含む) ごとに 1 回だけ警告する関数を返す。
+func dumpWarner(w io.Writer, root string) func(*scenario.Runbook) {
+	if w == nil {
+		return func(*scenario.Runbook) {}
+	}
+	warned := map[string]bool{}
+	var visit func(path, text string)
+	visit = func(path, text string) {
+		if warned[path] {
+			return
+		}
+		warned[path] = true
+		if HasDumpStep(text) {
+			fmt.Fprintf(w, "警告: %s: dump ステップは証跡の自動保存と重複しています (runnora-migrate で削除できます)\n", displayPath(root, path))
+		}
+	}
+	return func(rb *scenario.Runbook) {
+		visit(rb.Path, rb.Text)
+		for _, inc := range scenario.Includes(rb) {
+			if warned[inc] {
+				continue
+			}
+			b, err := os.ReadFile(inc)
+			if err != nil {
+				continue
+			}
+			visit(inc, string(b))
+		}
+	}
 }
 
 // baseRunnOptions はすべての runbook に共通の runn オプションを返す。

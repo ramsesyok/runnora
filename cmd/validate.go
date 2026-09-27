@@ -215,6 +215,11 @@ func runValidate(projectPath, envFlag string, args []string) (*validateResult, e
 		addJoined(res, "runnora.id", err)
 	}
 
+	dumpChecked := map[string]bool{}
+	for _, t := range targets {
+		checkDumpSteps(res, t.rb, dumpChecked)
+	}
+
 	for _, t := range targets {
 		before, after := t.rb.SQLFiles(p.Root)
 		for _, f := range append(before, after...) {
@@ -257,6 +262,28 @@ func checkIncludes(res *validateResult, rb *scenario.Runbook, vars map[string]st
 			res.warnf(inc, "未定義の変数を参照しています: %s (include 元: %s)", strings.Join(names, ", "), rb.Path)
 		}
 		checkIncludes(res, child, vars, visited)
+	}
+}
+
+// checkDumpSteps は dump ステップを持つ runbook (include 先を含む) を警告する。
+// 証跡は自動で保存されるので dump ステップは重複になる (docs/design/evidence-report.md の 4.5)。
+func checkDumpSteps(res *validateResult, rb *scenario.Runbook, checked map[string]bool) {
+	if checked[rb.Path] {
+		return
+	}
+	checked[rb.Path] = true
+	if app.HasDumpStep(rb.Text) {
+		res.warnf(rb.Path, "dump ステップは証跡の自動保存と重複しています (runnora-migrate で削除できます)")
+	}
+	for _, inc := range scenario.Includes(rb) {
+		if checked[inc] {
+			continue
+		}
+		child, err := scenario.Read(inc, "")
+		if err != nil {
+			continue // 読めない include 先は checkIncludes が警告する
+		}
+		checkDumpSteps(res, child, checked)
 	}
 }
 
