@@ -267,16 +267,20 @@ runnora ls --long ./runbooks/**/*.yml
 
 ### `coverage` — OpenAPI / gRPC カバレッジを表示する
 
-OpenAPI 3 スペックや Protocol Buffers のメソッドに対して、runbook がどの程度のエンドポイントをカバーしているかを計測します。
+OpenAPI 3 スペックや Protocol Buffers のメソッドに対して、runbook がどの程度のエンドポイントをカバーしているかを計測します（runbook は実行しません）。
+runners の接続先などの `${VAR}` は、`run` と同じく `runnora.yaml` の環境の `vars`・OS の環境変数・`--var` で展開します。
+loop で template を include する suite は、runn の集計の対象になりません。include される template を指定してください。
 
 ```bash
-runnora coverage [options] <path-pattern...>
+runnora coverage [options] <runbook...>      # glob 可
+runnora coverage [options] --suite <名前>
 ```
 
 | フラグ | 説明 |
 |---|---|
 | `-l`, `--long` | エンドポイントごとの詳細を表示する |
 | `--format json` | JSON 形式で出力する |
+| `--project` / `--env` / `--suite` / `--var` | `run` と同じ |
 
 **使用例:**
 
