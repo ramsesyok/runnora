@@ -87,8 +87,8 @@ func buildTemplateContent(op *OperationInfo, runnerName string) string {
 	sb.WriteString("        " + op.Method + ":\n")
 	sb.WriteString("          headers: \"{{ vars.case.headers }}\"\n")
 
-	// request body は POST/PUT/PATCH のみ
-	if hasRequestBody(op.Method) {
+	// request body は requestBody を定義した POST/PUT/PATCH のみ
+	if sendsRequestBody(op) {
 		sb.WriteString("          body:\n")
 		if op.RequestBodyContentType == "multipart/form-data" {
 			sb.WriteString("            multipart/form-data:\n")
@@ -166,7 +166,7 @@ type caseExpect struct {
 // buildCaseData は case JSON の内容を構築する (設計書 §12.2)。
 func buildCaseData(op *OperationInfo) caseData {
 	reqBody := op.RequestBodySample
-	if reqBody == nil && hasRequestBody(op.Method) {
+	if reqBody == nil && sendsRequestBody(op) {
 		reqBody = map[string]interface{}{"TODO": "fill in request body"}
 	}
 
@@ -303,6 +303,12 @@ func CleanGenerated(outDir string) error {
 		}
 	}
 	return nil
+}
+
+// sendsRequestBody は template runbook と case JSON にリクエストボディを含めるかを返す。
+// OpenAPI に requestBody が定義されていない operation には、POST でもボディを付けない。
+func sendsRequestBody(op *OperationInfo) bool {
+	return op.HasRequestBody && hasRequestBody(op.Method)
 }
 
 // hasRequestBody は HTTP メソッドがリクエストボディを持つかを返す。

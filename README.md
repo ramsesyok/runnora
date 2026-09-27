@@ -273,7 +273,7 @@ runnora generate [options]
 | `--server` | — | template runbook の endpoint として使う server URL |
 | `--runner-name` | `req` | template runbook のランナー名 |
 | `--emit-manifest` | — | manifest.json を生成する |
-| `--emit-response-example` | — | レスポンス example を case に含める |
+| `--emit-response-example` | — | 非推奨（効果なし）。レスポンス example は指定しなくても常に case に含まれる。今後のリリースで削除する |
 
 生成物は再生成前提です。手編集が必要な runbook は `runbooks/evidence/` にコピーして育てる運用を推奨します。
 タグや operationId にファイル名として使えない文字がある場合、生成先の名前は安全な文字に置き換え、識別用の短いハッシュを付けます。`--emit-manifest` を指定した場合、元の値は manifest のメタデータに残ります。

@@ -30,8 +30,8 @@
 |---|---|---|
 | 1 | 同じ OpenAPI から、2 つのツールが違う値の雛形を作る | `runnora/internal/generate/sample.go`、`oapi2wire/internal/openapi/sample_generator.go` |
 | 2 | レスポンスの置き場所が 2 系統ある。新しい設計では `mock/responses/` を期待値として共有するので、ケース JSON への埋め込みと合わない | 同上 |
-| 3 | `generate --emit-response-example` が効いていない（フラグは読み込まれるが、どこでも使われていない） | `cmd/generate.go`、`internal/generate/service.go` |
-| 4 | requestBody のない POST にも `{"TODO": "fill in request body"}` を入れる（e2e のフィードバック #5） | `internal/generate/emitter.go` の `buildCaseData` |
+| 3 | `generate --emit-response-example` が効いていない（フラグは読み込まれるが、どこでも使われていない）。**2026-09-27 対応：非推奨にし、指定すると警告を出す。動作は変えない** | `cmd/generate.go`、`internal/generate/service.go` |
+| 4 | requestBody のない POST にも `{"TODO": "fill in request body"}` を入れる（e2e のフィードバック #5）。**2026-09-27 修正済み：OpenAPI に requestBody がある operation だけにボディを付ける** | `internal/generate/emitter.go` の `buildCaseData` |
 | 5 | 仮の値（`TODO`）と、OpenAPI の example から取った本物の値の区別がファイル上でつかない | ― |
 | 6 | proto からは何も生成しない | ― |
 

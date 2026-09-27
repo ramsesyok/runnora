@@ -33,7 +33,8 @@ type OperationInfo struct {
 	PrimaryTag   string // 最初の tag (なければ "default")
 
 	// サンプルデータ
-	RequestBodySample      interface{} // nil = request body なし
+	HasRequestBody         bool        // OpenAPI に requestBody が定義されているか
+	RequestBodySample      interface{} // nil = request body サンプルなし
 	RequestBodyContentType string
 	MultipartFields        []MultipartField
 	PathParams             []ParameterInfo
@@ -163,6 +164,7 @@ func buildOperationInfo(apiPath, method string, pathParams []*v3.Parameter, op *
 
 	// Request body サンプルを抽出する
 	// Content は *orderedmap.Map[string, *v3.MediaType] なので Oldest() で順に走査する
+	info.HasRequestBody = op.RequestBody != nil
 	if op.RequestBody != nil && op.RequestBody.Content != nil {
 		for pair := op.RequestBody.Content.Oldest(); pair != nil; pair = pair.Next() {
 			if strings.Contains(strings.ToLower(pair.Key), "multipart/form-data") {

@@ -338,7 +338,7 @@ generate [options]
 * `--server string`
 * `--runner-name string`
 * `--emit-manifest`
-* `--emit-response-example`
+* `--emit-response-example`（非推奨。効果なし。レスポンス example は常に case に含まれる）
 
 #### 入力
 
