@@ -1,0 +1,194 @@
+desc: LIB-001 本を借りて返すまでの正常系（在庫増減・ID引き継ぎ・二重返却）
+runnora:
+  id: LIB-001
+  after:
+    - sql/cases/lib001_assert_after.sql
+# 実行: runnora run --config config.yaml --after-sql sql/cases/lib001_assert_after.sql <this>
+labels:
+  - scenario
+  - loans
+runners:
+  req:
+    endpoint: ${API_URL}
+    # 応答を OpenAPI 定義で自動検証する。異常系の入力を送るためリクエスト側の検証は行わない
+    openapi3: ../../openapi/library-api.yaml
+    skipValidateRequest: true
+  db: ${ORACLE_DSN}
+steps:
+  member_before:
+    desc: 会員M0001が貸出0件・延滞なしであることを確認する
+    req:
+      /members/M0001:
+        get:
+          headers:
+            X-Test-Scenario: LIB-001
+          body: null
+  dump_member_before:
+    dump:
+      expr: steps.member_before.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/member_before.json'
+  check_member_before:
+    test: |
+      steps.member_before.res.status == 200 &&
+      steps.member_before.res.body.status == "ACTIVE" &&
+      steps.member_before.res.body.activeLoanCount == 0 &&
+      steps.member_before.res.body.overdue == false
+
+  book_before:
+    desc: 蔵書B0001の貸出可能冊数が所蔵冊数3と同じであることを確認する
+    req:
+      /books/B0001:
+        get:
+          headers:
+            X-Test-Scenario: LIB-001
+          body: null
+  dump_book_before:
+    dump:
+      expr: steps.book_before.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/book_before.json'
+  check_book_before:
+    test: |
+      steps.book_before.res.status == 200 &&
+      steps.book_before.res.body.totalCopies == 3 &&
+      steps.book_before.res.body.availableCopies == 3
+
+  create_loan:
+    desc: M0001がB0001を借りる。採番リセット済みなので貸出IDは1になる
+    req:
+      /loans:
+        post:
+          headers:
+            X-Test-Scenario: LIB-001
+          body:
+            application/json:
+              memberId: M0001
+              bookId: B0001
+  dump_create_loan:
+    dump:
+      expr: steps.create_loan.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/create_loan.json'
+  check_create_loan:
+    test: |
+      steps.create_loan.res.status == 201 &&
+      steps.create_loan.res.body.loanId == 1 &&
+      steps.create_loan.res.body.memberId == "M0001" &&
+      steps.create_loan.res.body.bookId == "B0001" &&
+      steps.create_loan.res.body.status == "ACTIVE" &&
+      steps.create_loan.res.body.returnedAt == nil &&
+      steps.create_loan.res.body.dueDate > steps.create_loan.res.body.loanedAt
+
+  save_loan_id:
+    desc: 応答の貸出IDをloan_idに保存し、後続の返却URLへ引き継ぐ
+    bind:
+      loan_id: steps.create_loan.res.body.loanId
+  db_loan_row:
+    desc: DBのLOANS表に貸出中の行が1件あり、返却期限が貸出日+14日であることを直接確認する
+    db:
+      query: |
+        SELECT status, due_date - loaned_at AS days
+          FROM loans
+         WHERE loan_id = {{ loan_id }}
+    test: |
+      len(current.rows) == 1 &&
+      current.rows[0].STATUS == "ACTIVE" &&
+      current.rows[0].DAYS == "14"
+  book_lent:
+    desc: 貸出によりB0001の貸出可能冊数が1減ったことを確認する
+    req:
+      /books/B0001:
+        get:
+          headers:
+            X-Test-Scenario: LIB-001
+          body: null
+  dump_book_lent:
+    dump:
+      expr: steps.book_lent.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/book_lent.json'
+  check_book_lent:
+    test: |
+      steps.book_lent.res.status == 200 &&
+      steps.book_lent.res.body.availableCopies == steps.book_before.res.body.availableCopies - 1
+
+  member_loans:
+    desc: 貸出中一覧に今回の貸出が反映されるまで最大5回照会する
+    # until が成立した時点で終了し、5回とも成立しなければ失敗する。
+    # 各照会の応答は include 内で保存し、その後に until で判定する。
+    loop:
+      count: 5
+      until: current.steps.fetch.res.status == 200 && current.steps.fetch.res.body.total == 1 && current.steps.fetch.res.body.items[0].loanId == loan_id
+      interval: 0.2
+    include:
+      path: ./lib-001-member-loans-poll.yml
+      vars:
+        attempt: '{{ i }}'
+  return_loan:
+    desc: 保存した貸出IDで返却し、状態がRETURNEDになり返却日が入ることを確認する
+    req:
+      /loans/{{ loan_id }}/return:
+        post:
+          headers:
+            X-Test-Scenario: LIB-001
+          body:
+            application/json: {}
+  dump_return_loan:
+    dump:
+      expr: steps.return_loan.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/return_loan.json'
+  check_return_loan:
+    test: |
+      steps.return_loan.res.status == 200 &&
+      steps.return_loan.res.body.loanId == loan_id &&
+      steps.return_loan.res.body.status == "RETURNED" &&
+      steps.return_loan.res.body.returnedAt != nil
+
+  return_again:
+    desc: 同じ貸出を再度返却すると409 ALREADY_RETURNEDになることを確認する
+    req:
+      /loans/{{ loan_id }}/return:
+        post:
+          headers:
+            X-Test-Scenario: LIB-001
+          body:
+            application/json: {}
+  dump_return_again:
+    dump:
+      expr: steps.return_again.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/return_again.json'
+  check_return_again:
+    test: |
+      steps.return_again.res.status == 409 &&
+      steps.return_again.res.body.code == "ALREADY_RETURNED"
+
+  book_restored:
+    desc: 返却によりB0001の貸出可能冊数が初期値に戻り、二重返却で増えていないことを確認する
+    req:
+      /books/B0001:
+        get:
+          headers:
+            X-Test-Scenario: LIB-001
+          body: null
+  dump_book_restored:
+    dump:
+      expr: steps.book_restored.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/book_restored.json'
+  check_book_restored:
+    test: |
+      steps.book_restored.res.status == 200 &&
+      steps.book_restored.res.body.availableCopies == steps.book_before.res.body.availableCopies
+
+  member_after:
+    desc: 会員の貸出中件数が0に戻ったことを確認する
+    req:
+      /members/M0001:
+        get:
+          headers:
+            X-Test-Scenario: LIB-001
+          body: null
+  dump_member_after:
+    dump:
+      expr: steps.member_after.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/member_after.json'
+  check_member_after:
+    test: |
+      steps.member_after.res.status == 200 &&
+      steps.member_after.res.body.activeLoanCount == 0

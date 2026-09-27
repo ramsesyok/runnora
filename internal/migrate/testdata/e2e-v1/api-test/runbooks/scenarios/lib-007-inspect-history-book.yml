@@ -1,0 +1,23 @@
+desc: LIB-007 履歴の蔵書を照会する
+runners:
+  req:
+    endpoint: http://127.0.0.1:18081
+    openapi3: ../../openapi/library-api.yaml
+    skipValidateRequest: true
+vars:
+  index: 0
+  book_id: ''
+steps:
+  fetch:
+    req:
+      /books/{{ vars.book_id }}:
+        get:
+          headers:
+            X-Test-Scenario: LIB-007
+          body: null
+  dump_response:
+    dump:
+      expr: steps.fetch.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/inspect_history_book-{{ vars.index }}.json'
+  check_response:
+    test: steps.fetch.res.status == 200 && steps.fetch.res.body.bookId == vars.book_id

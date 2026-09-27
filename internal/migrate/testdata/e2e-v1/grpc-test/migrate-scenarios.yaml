@@ -1,0 +1,8 @@
+# runnora-migrate のシナリオ対応表 (scripts/run.ps1 を書き写したもの)
+scenarios:
+  - runbook: runbooks/*.yml
+
+suites:
+  grpc:
+    select:
+      paths: [runbooks/*.yml]

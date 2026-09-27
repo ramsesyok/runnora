@@ -1,0 +1,21 @@
+desc: "会員の貸出履歴を取得する suite"
+labels:
+  - generated
+  - openapi
+  - "members"
+  - method:get
+  - "operation:listMemberLoans"
+  - mode:suite
+
+vars:
+  cases:
+    - "json://../../../cases/generated/members/get_listMemberLoans/default.json"
+
+steps:
+  run_case:
+    loop:
+      count: len(vars.cases)
+    include:
+      path: "./get_listMemberLoans.template.yml"
+      vars:
+        case: "{{ vars.cases[i] }}"

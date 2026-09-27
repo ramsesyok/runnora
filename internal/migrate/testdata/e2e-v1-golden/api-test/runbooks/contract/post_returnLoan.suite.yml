@@ -1,0 +1,39 @@
+desc: 契約 returnLoan 本を返却する（モック・実APIの両方で実行する）
+runnora:
+  id: post_returnLoan.suite
+labels:
+  - contract
+  - loans
+  - operation:returnLoan
+
+# ケースごとに include ステップを 1 つずつ並べる。
+#   runn の loop (until なし) は最後の回の失敗しか報告しないため、loop + include でケースを回すと
+#   途中のケースの失敗を見逃す。明示的なステップなら各ケースの失敗がそのまま報告される。
+# case     : 入力と期待ステータス (cases/contract/)
+# expected : 期待する応答本文。oapi2wire がモックの戻り値として返すファイルと同一 (fixtures/responses/)
+
+steps:
+  returned:
+    desc: 貸出中の貸出 1 を返却する (contract_setup.sql)
+    include:
+      # json:// の相対パスは include 先 template の位置で解決されるため、template は suite と同じ場所に置く
+      path: ./post_returnLoan.template.yml
+      vars:
+        case: json://../../cases/contract/loans/post_returnLoan/01_returned.json
+        expected: json://../../fixtures/responses/returnLoan/returnLoan_1.json
+  already_returned:
+    desc: 返却済みの貸出 2 は 409
+    include:
+      # json:// の相対パスは include 先 template の位置で解決されるため、template は suite と同じ場所に置く
+      path: ./post_returnLoan.template.yml
+      vars:
+        case: json://../../cases/contract/loans/post_returnLoan/02_already_returned.json
+        expected: json://../../fixtures/responses/returnLoan/returnLoan_2_already_returned.json
+  not_found:
+    desc: 存在しない貸出は 404
+    include:
+      # json:// の相対パスは include 先 template の位置で解決されるため、template は suite と同じ場所に置く
+      path: ./post_returnLoan.template.yml
+      vars:
+        case: json://../../cases/contract/loans/post_returnLoan/03_not_found.json
+        expected: json://../../fixtures/responses/returnLoan/returnLoan_not_found.json

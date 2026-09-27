@@ -110,7 +110,7 @@ func normalizeHookPath(p string) string {
 
 // renderProject は runnora.yaml の内容を作る。
 // コメントを残すため、YAML のライブラリで書き出さずにテキストで組み立てる。
-func renderProject(envs []*environment) string {
+func renderProject(envs []*environment, suites string) string {
 	var b strings.Builder
 	files := make([]string, 0, len(envs))
 	for _, e := range envs {
@@ -157,8 +157,13 @@ func renderProject(envs []*environment) string {
 	}
 	b.WriteString("\n")
 
-	b.WriteString("# TODO(runnora-migrate): スクリプトで実行していた runbook のまとまりを suites に定義する\n")
-	b.WriteString("# suites:\n#   scenarios:\n#     select:\n#       paths: [runbooks/scenarios/*.yml]\n\n")
+	if suites != "" {
+		b.WriteString("# シナリオ対応表の suites から移行\n")
+		b.WriteString(suites + "\n")
+	} else {
+		b.WriteString("# TODO(runnora-migrate): スクリプトで実行していた runbook のまとまりを suites に定義する\n")
+		b.WriteString("# suites:\n#   scenarios:\n#     select:\n#       paths: [runbooks/scenarios/*.yml]\n\n")
+	}
 
 	if first.Runn.Trace {
 		b.WriteString("runn:\n  trace: true\n\n")

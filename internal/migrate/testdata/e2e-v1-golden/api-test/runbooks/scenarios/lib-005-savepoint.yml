@@ -1,0 +1,224 @@
+desc: LIB-005 SAVEPOINTで一部だけ確定した初期データをAPIから確認する
+runnora:
+  id: LIB-005
+  before:
+    - sql/cases/lib005_savepoint_before.sql
+  after:
+    - sql/cases/lib005_assert_after.sql
+# 実行: runnora run --config config.yaml
+#         --before-sql sql/cases/lib005_savepoint_before.sql
+#         --after-sql  sql/cases/lib005_assert_after.sql <this>
+# 前処理: B0101/B0102/B0105 は確定、B0103 (ISBN 重複) と B0104 (会員なし) は ROLLBACK TO SAVEPOINT で取消。
+#         一括停止も取り消され、M0008 だけが SUSPENDED になる。
+labels:
+  - scenario
+  - books
+  - plsql-setup
+runners:
+  req:
+    endpoint: ${API_URL}
+    # 応答を OpenAPI 定義で自動検証する。異常系の入力を送るためリクエスト側の検証は行わない
+    openapi3: ../../openapi/library-api.yaml
+    skipValidateRequest: true
+  db: ${ORACLE_DSN}
+steps:
+  test_books:
+    desc: TESTジャンルの蔵書が確定した3件だけであることを確認する
+    req:
+      /books?genre=TEST:
+        get:
+          headers:
+            X-Test-Scenario: LIB-005
+          body: null
+  dump_test_books:
+    dump:
+      expr: steps.test_books.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/test_books.json'
+  check_test_books:
+    test: |
+      steps.test_books.res.status == 200 &&
+      steps.test_books.res.body.total == 3 &&
+      map(steps.test_books.res.body.items, .bookId) == ["B0101", "B0102", "B0105"]
+
+  duplicate_rolled_back:
+    desc: ISBN重複で取り消したB0103が存在しないことを確認する
+    req:
+      /books/B0103:
+        get:
+          headers:
+            X-Test-Scenario: LIB-005
+          body: null
+  dump_duplicate_rolled_back:
+    dump:
+      expr: steps.duplicate_rolled_back.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/duplicate_rolled_back.json'
+  check_duplicate_rolled_back:
+    test: |
+      steps.duplicate_rolled_back.res.status == 404 &&
+      steps.duplicate_rolled_back.res.body.code == "NOT_FOUND"
+
+  fk_rolled_back:
+    desc: 貸出の外部キー違反で蔵書ごと取り消したB0104が存在しないことを確認する
+    req:
+      /books/B0104:
+        get:
+          headers:
+            X-Test-Scenario: LIB-005
+          body: null
+  dump_fk_rolled_back:
+    dump:
+      expr: steps.fk_rolled_back.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/fk_rolled_back.json'
+  check_fk_rolled_back:
+    test: steps.fk_rolled_back.res.status == 404
+
+  unit_with_loan:
+    desc: 蔵書と初回貸出を同じ単位で確定したB0101は、貸出可能冊数が1減っている
+    req:
+      /books/B0101:
+        get:
+          headers:
+            X-Test-Scenario: LIB-005
+          body: null
+  dump_unit_with_loan:
+    dump:
+      expr: steps.unit_with_loan.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/unit_with_loan.json'
+  check_unit_with_loan:
+    test: |
+      steps.unit_with_loan.res.status == 200 &&
+      steps.unit_with_loan.res.body.totalCopies == 2 &&
+      steps.unit_with_loan.res.body.availableCopies == 1
+
+  sequence_gap:
+    desc: 取り消した単位で消費された採番は戻らないため、B0105の貸出IDは3になる
+    req:
+      /members/M0005/loans:
+        get:
+          headers:
+            X-Test-Scenario: LIB-005
+          body: null
+  dump_sequence_gap:
+    dump:
+      expr: steps.sequence_gap.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/sequence_gap.json'
+  check_sequence_gap:
+    test: |
+      steps.sequence_gap.res.status == 200 &&
+      steps.sequence_gap.res.body.total == 1 &&
+      steps.sequence_gap.res.body.items[0].loanId == 3 &&
+      steps.sequence_gap.res.body.items[0].bookId == "B0105"
+
+  bulk_suspend_rolled_back:
+    desc: 一括停止は取り消されたため、M0006は利用可能のまま
+    req:
+      /members/M0006:
+        get:
+          headers:
+            X-Test-Scenario: LIB-005
+          body: null
+  dump_bulk_suspend_rolled_back:
+    dump:
+      expr: steps.bulk_suspend_rolled_back.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/bulk_suspend_rolled_back.json'
+  check_bulk_suspend_rolled_back:
+    test: |
+      steps.bulk_suspend_rolled_back.res.status == 200 &&
+      steps.bulk_suspend_rolled_back.res.body.status == "ACTIVE"
+
+  single_suspend:
+    desc: 個別停止に切り替えたM0008だけがSUSPENDEDになっている
+    req:
+      /members/M0008:
+        get:
+          headers:
+            X-Test-Scenario: LIB-005
+          body: null
+  dump_single_suspend:
+    dump:
+      expr: steps.single_suspend.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/single_suspend.json'
+  check_single_suspend:
+    test: |
+      steps.single_suspend.res.status == 200 &&
+      steps.single_suspend.res.body.status == "SUSPENDED"
+
+  suspended_cannot_borrow:
+    desc: 停止中のM0008は借りられない（409 MEMBER_SUSPENDED）
+    req:
+      /loans:
+        post:
+          headers:
+            X-Test-Scenario: LIB-005
+          body:
+            application/json:
+              memberId: M0008
+              bookId: B0102
+  dump_suspended_cannot_borrow:
+    dump:
+      expr: steps.suspended_cannot_borrow.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/suspended_cannot_borrow.json'
+  check_suspended_cannot_borrow:
+    test: |
+      steps.suspended_cannot_borrow.res.status == 409 &&
+      steps.suspended_cannot_borrow.res.body.code == "MEMBER_SUSPENDED"
+
+  api_duplicate_isbn:
+    desc: APIからもB0101と同じISBNでは登録できない（409 DUPLICATE_BOOK）
+    req:
+      /books:
+        post:
+          headers:
+            X-Test-Scenario: LIB-005
+          body:
+            application/json:
+              bookId: B0103
+              isbn: "9784000000101"
+              title: 再登録テスト
+              author: 試験 花子
+              genre: TEST
+              totalCopies: 1
+  dump_api_duplicate_isbn:
+    dump:
+      expr: steps.api_duplicate_isbn.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/api_duplicate_isbn.json'
+  check_api_duplicate_isbn:
+    test: |
+      steps.api_duplicate_isbn.res.status == 409 &&
+      steps.api_duplicate_isbn.res.body.code == "DUPLICATE_BOOK"
+
+  api_register_b0103:
+    desc: 正しいISBNでB0103を登録し直すと201で登録される
+    req:
+      /books:
+        post:
+          headers:
+            X-Test-Scenario: LIB-005
+          body:
+            application/json:
+              bookId: B0103
+              isbn: "9784000000103"
+              title: 再登録テスト
+              author: 試験 花子
+              genre: TEST
+              totalCopies: 1
+  dump_api_register_b0103:
+    dump:
+      expr: steps.api_register_b0103.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/api_register_b0103.json'
+  check_api_register_b0103:
+    test: |
+      steps.api_register_b0103.res.status == 201 &&
+      steps.api_register_b0103.res.body.bookId == "B0103" &&
+      steps.api_register_b0103.res.body.availableCopies == 1
+
+  db_hook_log:
+    desc: 自律型トランザクションで書いたROLLBACKのログが残っていることをDBで確認する
+    db:
+      query: |
+        SELECT COUNT(*) AS cnt
+          FROM test_hook_log
+         WHERE hook_name = 'cases/lib005_savepoint'
+           AND message LIKE 'rollback%'
+           AND logged_at > SYSTIMESTAMP - INTERVAL '10' MINUTE
+    test: int(current.rows[0].CNT) >= 3

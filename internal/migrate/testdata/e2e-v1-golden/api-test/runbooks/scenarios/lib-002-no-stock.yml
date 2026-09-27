@@ -1,0 +1,155 @@
+desc: LIB-002 在庫1冊の本の取り合い（在庫切れ409と返却後の再貸出）
+runnora:
+  id: LIB-002
+labels:
+  - scenario
+  - loans
+runners:
+  req:
+    endpoint: ${API_URL}
+    # 応答を OpenAPI 定義で自動検証する。異常系の入力を送るためリクエスト側の検証は行わない
+    openapi3: ../../openapi/library-api.yaml
+    skipValidateRequest: true
+  db: ${ORACLE_DSN}
+steps:
+  first_loan:
+    desc: 所蔵1冊のB0002をM0001が借りる
+    req:
+      /loans:
+        post:
+          headers:
+            X-Test-Scenario: LIB-002
+          body:
+            application/json:
+              memberId: M0001
+              bookId: B0002
+  dump_first_loan:
+    dump:
+      expr: steps.first_loan.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/first_loan.json'
+  check_first_loan:
+    test: |
+      steps.first_loan.res.status == 201 &&
+      steps.first_loan.res.body.loanId == 1 &&
+      steps.first_loan.res.body.bookId == "B0002"
+
+  save_first:
+    desc: 1件目の貸出IDをfirst_loan_idに保存する
+    bind:
+      first_loan_id: steps.first_loan.res.body.loanId
+  book_empty:
+    desc: B0002の貸出可能冊数が0になったことを確認する
+    req:
+      /books/B0002:
+        get:
+          headers:
+            X-Test-Scenario: LIB-002
+          body: null
+  dump_book_empty:
+    dump:
+      expr: steps.book_empty.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/book_empty.json'
+  check_book_empty:
+    test: |
+      steps.book_empty.res.status == 200 &&
+      steps.book_empty.res.body.availableCopies == 0
+
+  available_novels:
+    desc: 貸出可能な小説の検索結果からB0002が消えることを確認する
+    req:
+      /books?genre=NOVEL&availableOnly=true:
+        get:
+          headers:
+            X-Test-Scenario: LIB-002
+          body: null
+  dump_available_novels:
+    dump:
+      expr: steps.available_novels.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/available_novels.json'
+  check_available_novels:
+    test: |
+      steps.available_novels.res.status == 200 &&
+      steps.available_novels.res.body.total == 1 &&
+      steps.available_novels.res.body.items[0].bookId == "B0001"
+
+  second_loan_rejected:
+    desc: 別会員M0002が同じ本を借りようとすると409 NO_STOCKになる
+    req:
+      /loans:
+        post:
+          headers:
+            X-Test-Scenario: LIB-002
+          body:
+            application/json:
+              memberId: M0002
+              bookId: B0002
+  dump_second_loan_rejected:
+    dump:
+      expr: steps.second_loan_rejected.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/second_loan_rejected.json'
+  check_second_loan_rejected:
+    test: |
+      steps.second_loan_rejected.res.status == 409 &&
+      steps.second_loan_rejected.res.body.code == "NO_STOCK"
+
+  db_no_extra_loan:
+    desc: 拒否された貸出がDBに作られていないことを確認する
+    db:
+      query: |
+        SELECT COUNT(*) AS cnt FROM loans WHERE book_id = 'B0002'
+    test: current.rows[0].CNT == "1"
+  return_first:
+    desc: M0001が返却する
+    req:
+      /loans/{{ first_loan_id }}/return:
+        post:
+          headers:
+            X-Test-Scenario: LIB-002
+          body:
+            application/json: {}
+  dump_return_first:
+    dump:
+      expr: steps.return_first.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/return_first.json'
+  check_return_first:
+    test: |
+      steps.return_first.res.status == 200 &&
+      steps.return_first.res.body.status == "RETURNED"
+
+  second_loan_ok:
+    desc: 返却後はM0002が借りられ、新しい貸出IDが採番される
+    req:
+      /loans:
+        post:
+          headers:
+            X-Test-Scenario: LIB-002
+          body:
+            application/json:
+              memberId: M0002
+              bookId: B0002
+  dump_second_loan_ok:
+    dump:
+      expr: steps.second_loan_ok.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/second_loan_ok.json'
+  check_second_loan_ok:
+    test: |
+      steps.second_loan_ok.res.status == 201 &&
+      steps.second_loan_ok.res.body.loanId == first_loan_id + 1 &&
+      steps.second_loan_ok.res.body.memberId == "M0002"
+
+  book_empty_again:
+    desc: 再び貸出可能冊数が0になったことを確認する
+    req:
+      /books/B0002:
+        get:
+          headers:
+            X-Test-Scenario: LIB-002
+          body: null
+  dump_book_empty_again:
+    dump:
+      expr: steps.book_empty_again.res
+      out: '{{ env.RUNNORA_EVIDENCE_DIR }}/book_empty_again.json'
+  check_book_empty_again:
+    test: |
+      steps.book_empty_again.res.status == 200 &&
+      steps.book_empty_again.res.body.availableCopies == 0

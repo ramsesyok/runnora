@@ -1,0 +1,24 @@
+# runnora-migrate が config.yaml から生成したプロジェクトファイル。
+# パスはこのファイルのあるディレクトリを基準にする。
+version: 2
+
+project:
+  name: "runnora-e2e-grpc"
+
+defaults:
+  env: "unit"
+
+environments:
+  unit:
+    # config.yaml から移行
+    vars:
+      GRPC_ADDR: "127.0.0.1:19090"  # runbook から取り出した値。環境に合わせて確認する
+
+# シナリオ対応表の suites から移行
+suites:
+  grpc:
+    select:
+      paths: [runbooks/*.yml]
+
+report:
+  format: "text"

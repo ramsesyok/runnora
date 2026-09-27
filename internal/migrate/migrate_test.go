@@ -279,6 +279,22 @@ func TestApply_ResultValidatesAndIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestBuild_KeepsCRLF(t *testing.T) {
+	dir := writeTree(t, map[string]string{
+		"config.yaml":    "app: {}\r\n",
+		"runbooks/a.yml": "desc: A-1 x\r\nrunners:\r\n  req:\r\n    endpoint: http://localhost:1\r\nsteps:\r\n  s:\r\n    test: true\r\n",
+	})
+	plan, err := Build(Options{Dir: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := changeOf(plan, "runbooks/a.yml").Content
+	want := "desc: A-1 x\r\nrunnora:\r\n  # TODO(runnora-migrate): 前後処理 (before / after) と期待する結果 (expect) を確認する\r\n  id: A-1\r\nrunners:\r\n  req:\r\n    endpoint: ${API_URL}\r\nsteps:\r\n  s:\r\n    test: true\r\n"
+	if got != want {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
 func TestBuild_Errors(t *testing.T) {
 	tests := []struct {
 		name    string

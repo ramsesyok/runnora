@@ -1,0 +1,50 @@
+# runnora-migrate のシナリオ対応表 (scripts/*.ps1 と scripts/scenarios.psd1 を書き写したもの)
+scenarios:
+  # scenarios.psd1 の Scenarios (BeforeSql / AfterSql / Expect)
+  - runbook: runbooks/scenarios/lib-001-loan-lifecycle.yml
+    after: [sql/cases/lib001_assert_after.sql]
+  - runbook: runbooks/scenarios/lib-002-no-stock.yml
+  - runbook: runbooks/scenarios/lib-003-overdue.yml
+    before: [sql/cases/lib003_overdue_before.sql]
+  - runbook: runbooks/scenarios/lib-004-loan-limit.yml
+    before: [sql/cases/lib004_fill_loans_before.sql]
+  - runbook: runbooks/scenarios/lib-005-savepoint.yml
+    before: [sql/cases/lib005_savepoint_before.sql]
+    after: [sql/cases/lib005_assert_after.sql]
+  - runbook: runbooks/scenarios/lib-006-validation-errors.yml
+    after: [sql/cases/lib006_assert_no_loans_after.sql]
+  - runbook: runbooks/scenarios/lib-007-bulk-history.yml
+    before: [sql/cases/lib007_history_before.sql]
+  - runbook: runbooks/demo/hook-failure-detection.yml
+    id: DEMO-HOOK-FAILURE
+    after: [sql/cases/demo_break_invariant_after.sql]
+    expectExit: 4
+  # test-mock.ps1 / test-api.ps1 の契約テスト。前後処理は環境で違うので suites に書く
+  - runbook: runbooks/contract/*.suite.yml
+
+# _common.ps1 の $ApiUrl / $MockUrl。test-*.ps1 が RUNNORA_BASE_URL として渡していた
+environments:
+  unit:
+    vars:
+      RUNNORA_BASE_URL: http://127.0.0.1:18081
+  mock:
+    vars:
+      RUNNORA_BASE_URL: http://127.0.0.1:18080
+      API_URL: http://127.0.0.1:18080
+
+# test-mock.ps1 / test-api.ps1 で runbook をまとめて実行していた単位
+suites:
+  contract-mock:
+    env: mock
+    select:
+      paths: [runbooks/contract/*.suite.yml]
+  contract-unit:
+    env: unit
+    select:
+      paths: [runbooks/contract/*.suite.yml]
+    hooks:
+      before: [sql/cases/contract_setup.sql]
+  scenarios:
+    env: unit
+    select:
+      paths: [runbooks/scenarios/*.yml, runbooks/demo/*.yml]

@@ -155,7 +155,7 @@ func (d *runbookDoc) replaceScalar(node *yaml.Node, newText string) error {
 				end = start + j
 			}
 		}
-		end = start + len(strings.TrimRight(line[start:end], " \t"))
+		end = start + len(strings.TrimRight(line[start:end], " \t\r"))
 	default:
 		return fmt.Errorf("%s:%d: ブロック形式の値は置き換えられません", d.rel, node.Line)
 	}
@@ -205,7 +205,12 @@ func (d *runbookDoc) insertBlock(block []string) {
 	}
 	lines := make([]string, 0, len(d.lines)+len(block))
 	lines = append(lines, d.lines[:at]...)
-	lines = append(lines, block...)
+	for _, l := range block {
+		if strings.Contains(d.text, "\r\n") {
+			l += "\r" // CRLF のファイルでは追加する行も CRLF にする
+		}
+		lines = append(lines, l)
+	}
 	lines = append(lines, d.lines[at:]...)
 	d.lines = lines
 }

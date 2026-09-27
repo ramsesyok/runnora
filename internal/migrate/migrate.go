@@ -69,8 +69,18 @@ type ScenarioEntry struct {
 	ExpectExit *int `yaml:"expectExit"`
 }
 
+// scenarioFile はシナリオ対応表のファイル。スクリプトに書かれていた内容を人が書き写す。
+//   - scenarios:    runbook ごとの前後処理の SQL と期待する結果
+//   - environments: スクリプトが環境変数で渡していた値 (環境ごとの vars に加える)
+//   - suites:       スクリプトで runbook をまとめて実行していた単位 (runnora.yaml の suites と同じ形。そのまま写す)
 type scenarioFile struct {
-	Scenarios []ScenarioEntry `yaml:"scenarios"`
+	Scenarios    []ScenarioEntry       `yaml:"scenarios"`
+	Environments map[string]envOverlay `yaml:"environments"`
+	Suites       yaml.Node             `yaml:"suites"`
+}
+
+type envOverlay struct {
+	Vars map[string]string `yaml:"vars"`
 }
 
 // generatedDir は runnora generate の出力で、移行せずに再生成するディレクトリ名。
@@ -88,10 +98,11 @@ func Build(opts Options) (*Plan, error) {
 	if err != nil {
 		return nil, err
 	}
-	entries, err := loadScenarios(dir, opts.ScenariosFile)
+	sf, err := loadScenarios(dir, opts.ScenariosFile)
 	if err != nil {
 		return nil, err
 	}
+	entries := sf.Scenarios
 
 	runbooks, generated, err := findRunbooks(dir)
 	if err != nil {
@@ -184,19 +195,37 @@ func Build(opts Options) (*Plan, error) {
 		}
 	}
 
-	// 3. runnora.yaml を作る (runbook から取り出した変数を環境に加える)
+	// 3. runnora.yaml を作る (対応表の環境の変数と、runbook から取り出した変数を環境に加える)
+	for name, ov := range sf.Environments {
+		e := findEnv(envs, name)
+		if e == nil {
+			return nil, fmt.Errorf("%s: environments.%s: 環境がありません (%s)", opts.ScenariosFile, name, envNames(envs))
+		}
+		for k, v := range ov.Vars {
+			e.vars[k] = v
+			e.varsOf[k] = "シナリオ対応表から (スクリプトが渡していた値)"
+		}
+	}
 	if len(envs) > 0 {
 		for _, v := range names.extracted {
+			var filled []string
 			for _, e := range envs {
 				if _, ok := e.vars[v.name]; ok {
 					continue
 				}
 				e.vars[v.name] = v.value
 				e.varsOf[v.name] = "runbook から取り出した値。環境に合わせて確認する"
+				filled = append(filled, e.spec.Name)
 			}
-			plan.todo("runnora.yaml", "%s は runbook に直書きされていた値 (%s) を全環境に入れました。環境ごとに正しい値か確認してください", v.name, v.value)
+			if len(filled) > 0 {
+				plan.todo("runnora.yaml", "%s は runbook に直書きされていた値 (%s) を環境 %s に入れました。環境ごとに正しい値か確認してください", v.name, v.value, strings.Join(filled, ", "))
+			}
 		}
-		plan.Changes = append([]Change{{Path: project.FileName, Action: "create", Content: renderProject(envs),
+		suites, err := renderSuites(&sf.Suites)
+		if err != nil {
+			return nil, fmt.Errorf("%s: suites: %w", opts.ScenariosFile, err)
+		}
+		plan.Changes = append([]Change{{Path: project.FileName, Action: "create", Content: renderProject(envs, suites),
 			Notes: []string{"環境: " + envNames(envs)}}}, plan.Changes...)
 		for _, e := range envs {
 			plan.Changes = append(plan.Changes, Change{Path: filepath.ToSlash(e.spec.File), Action: "delete",
@@ -219,9 +248,16 @@ func Build(opts Options) (*Plan, error) {
 		plan.todo("runnora.yaml", "runbook が参照する %s がどの環境にも定義されていません。スクリプトで環境変数として渡していた値を environments.<名前>.vars に書いてください", name)
 	}
 
-	// 5. スクリプトの旧形式の指定を報告する
+	// 5. スクリプトと runbook のコメントにある旧形式の指定を報告する
 	if err := scanScripts(dir, plan); err != nil {
 		return nil, err
+	}
+	for _, d := range runbooks {
+		for i, line := range d.lines { // 移行後の行番号で報告する
+			if strings.HasPrefix(strings.TrimSpace(line), "#") && legacyScriptPattern.MatchString(line) {
+				plan.todo(fmt.Sprintf("%s:%d", d.rel, i+1), "コメントに旧形式の実行方法が書かれています。新形式 (runnora run --suite / runnora: ブロック) に合わせて直してください")
+			}
+		}
 	}
 	return plan, nil
 }
@@ -271,15 +307,15 @@ func loadEnvironments(dir string, specs []EnvSpec, plan *Plan) ([]*environment, 
 	return envs, nil
 }
 
-func loadScenarios(dir, file string) ([]ScenarioEntry, error) {
+func loadScenarios(dir, file string) (*scenarioFile, error) {
+	var sf scenarioFile
 	if file == "" {
-		return nil, nil
+		return &sf, nil
 	}
 	data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(file)))
 	if err != nil {
 		return nil, err
 	}
-	var sf scenarioFile
 	dec := yaml.NewDecoder(strings.NewReader(string(data)))
 	dec.KnownFields(true)
 	if err := dec.Decode(&sf); err != nil {
@@ -290,7 +326,29 @@ func loadScenarios(dir, file string) ([]ScenarioEntry, error) {
 			return nil, fmt.Errorf("%s: runbook %q: %w", file, e.Runbook, err)
 		}
 	}
-	return sf.Scenarios, nil
+	return &sf, nil
+}
+
+// renderSuites は対応表の suites を runnora.yaml に書く形 (2 字下げ) にする。なければ "" を返す。
+func renderSuites(n *yaml.Node) (string, error) {
+	if n.Kind == 0 {
+		return "", nil
+	}
+	if n.Kind != yaml.MappingNode {
+		return "", fmt.Errorf("スイート名をキーにしたマッピングで書いてください")
+	}
+	var buf strings.Builder
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	if err := enc.Encode(n); err != nil {
+		return "", err
+	}
+	var b strings.Builder
+	b.WriteString("suites:\n")
+	for _, line := range strings.Split(strings.TrimRight(buf.String(), "\n"), "\n") {
+		b.WriteString("  " + line + "\n")
+	}
+	return b.String(), nil
 }
 
 func matchScenario(entries []ScenarioEntry, rel string) (ScenarioEntry, int) {
@@ -511,6 +569,15 @@ func uniqSorted(s []string) []string {
 		}
 	}
 	return out
+}
+
+func findEnv(envs []*environment, name string) *environment {
+	for _, e := range envs {
+		if e.spec.Name == name {
+			return e
+		}
+	}
+	return nil
 }
 
 func envNames(envs []*environment) string {
