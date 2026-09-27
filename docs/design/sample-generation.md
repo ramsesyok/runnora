@@ -9,7 +9,7 @@
 ワークフロー 2「テストシナリオの雛形と、リクエスト JSON・レスポンス JSON（期待値）の雛形を生成する」を、次の 2 点で改善する。
 
 1. **ファイルの形**：リクエストとレスポンスを、それぞれ独立した JSON ファイルとして出力する。
-2. **値の中身**：`TODO` や `0` ではなく、OpenAPI・proto の定義と制約に沿った値を入れる。gRPC（proto）からも同じように生成する。
+2. **値の中身**：OpenAPI・proto の定義と制約（enum、format、最小値・最大値など）から決められる値はそれを入れる。決められない文字列だけを `"TODO"` とし、編集が必要な箇所を一目で分かるようにする。gRPC（proto）からも同じように生成する。
 
 ## 2. 現状と課題
 
@@ -98,7 +98,7 @@ cases/grpc/<package>.<Service>/<Method>/
 - 期待値ファイルの形は、いまの e2e の grpc-test と同じにする。
 
   ```json
-  { "status": 0, "message": { "book_id": "book_id-1", "title": "title-1" } }
+  { "status": 0, "message": { "book_id": "TODO", "title": "TODO" } }
   ```
 
   Server streaming では `"messages": [ ... ]`（1 要素）とする。
@@ -162,12 +162,12 @@ cases/grpc/<package>.<Service>/<Method>/
 
 | 型 | 値 |
 |---|---|
-| string | **プロパティ名に連番を付けた値**（例：`"title-1"`）。`minLength` に足りなければ `x` で埋め、`maxLength` を超えれば切り詰める。パラメータの場合はパラメータ名を使う。`pattern` がある場合は 5.4 |
+| string | **`"TODO"`**（2026-09-27 決定）。編集していない箇所が一目で分かり、`TODO` で検索できるようにするため。`minLength` / `maxLength` に合わなくても `"TODO"` のままにする（編集を前提とした目印なので）。`pattern` がある場合は 5.4 |
 | integer | `minimum`（`exclusiveMinimum` なら +1）があればその値。なければ `1`。`maximum` が 1 未満ならその値。`multipleOf` があれば、条件を満たす最小の倍数 |
 | number | integer と同じ規則で、既定値は `1.5` |
 | boolean | `true` |
-| array | `minItems`（なければ 1）個の要素を作る。`uniqueItems` なら要素ごとに連番を変える |
-| object | `properties` を順に作る。`additionalProperties` だけの object は `{"key-1": <値>}` |
+| array | `minItems`（なければ 1）個の要素を作る。`uniqueItems` で要素が文字列なら `"TODO-1"`、`"TODO-2"` のように番号を付けて重複を避ける |
+| object | `properties` を順に作る。`additionalProperties` だけの object は `{"TODO": <値>}` |
 | null を許す型（`nullable: true`、`type: [string, "null"]`） | null ではない方の型で作る |
 
 構成の扱い:
@@ -205,7 +205,7 @@ proto には example を書く標準の方法がないため、型から作る�
 
 | proto の型 | 値 |
 |---|---|
-| `string` | フィールド名に連番を付けた値（`"book_id-1"`） |
+| `string` | `"TODO"`（5.3 と同じ） |
 | `bytes` | `"c2FtcGxl"`（base64） |
 | `int32` / `uint32` / `sint32` / `fixed32` / `sfixed32` | `1` |
 | `int64` / `uint64` / `sint64` / `fixed64` / `sfixed64` | `"1"`（protojson の仕様で文字列） |
@@ -267,6 +267,6 @@ proto には example を書く標準の方法がないため、型から作る�
 
 ## 11. 決めてほしいこと
 
-1. **文字列の仮の値**：プロパティ名に連番を付けた値（`"title-1"`）とする案。`TODO` のほうが「まだ編集していない」ことが一目で分かる、という考え方もある。本案では、仮の値の場所を一覧（5.5）で示すことで区別する。
+1. **文字列の仮の値**：**決定（2026-09-27）：`"TODO"`**（5.3 のとおり）。編集していない箇所が一目で分かり、検索もできる。そのまま送ると API の入力チェックで弾かれやすいが、雛形は編集して使う前提なので問題としない。数値・真偽値・format のある文字列など、規則で作った `TODO` 以外の値は 5.5 の一覧で区別する。
 2. **リクエストボディを常に別ファイルにするか**：本案は常に別ファイル。小さいボディ（数項目）はケース JSON に埋め込んだほうが読みやすい、という考え方もある。
 3. **`--all-statuses` の既定**：本案は既定で代表レスポンスだけを作り、異常系は指定したときだけ作る。
