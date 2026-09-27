@@ -421,6 +421,10 @@ github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2/go.mod h1:iKH
 github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:xMI15A0UPsDsEKsMN9yxemIoYk6Tm2C1GtYGdfGttqA=
 github.com/ramsesyok/oapi2wire v0.2.0 h1:JfKTCu1c5IsETHjTvEBRp8h026cb/9upyUSHDd5DO3w=
 github.com/ramsesyok/oapi2wire v0.2.0/go.mod h1:MPKyPvTzSs/eXRHagZU1iPJxeuPcLXhJU8dAWaE5UCQ=
+github.com/ramsesyok/oapi2wire v0.3.1-0.20260927221221-23eeb2c051a1 h1:dpMA+3KsS/fNi7O7VeHyXCykistzLC2qqejGckI0VS0=
+github.com/ramsesyok/oapi2wire v0.3.1-0.20260927221221-23eeb2c051a1/go.mod h1:MPKyPvTzSs/eXRHagZU1iPJxeuPcLXhJU8dAWaE5UCQ=
+github.com/ramsesyok/oapi2wire v0.3.1-0.20260927221844-b6b6fb94777c h1:ZsTCBF6rGtHO5OM23wz+ruEUK2rHiAzfASC5sv3UHn4=
+github.com/ramsesyok/oapi2wire v0.3.1-0.20260927221844-b6b6fb94777c/go.mod h1:MPKyPvTzSs/eXRHagZU1iPJxeuPcLXhJU8dAWaE5UCQ=
 github.com/ramsesyok/runnora-diff v0.2.1 h1:J1rEAfM22OKHYPCzFk0eGXI65e/70j8taTyFanBodl4=
 github.com/ramsesyok/runnora-diff v0.2.1/go.mod h1:wRzia8HyXbOdFivEZrWKzUxquBF7PAtDfrhP/9qcQT4=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=

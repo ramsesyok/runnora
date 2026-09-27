@@ -340,7 +340,7 @@ runnora-e2e を移行する過程で、「同じスイートを複数の環境�
 | 3 | runtime：証跡の自動保存、`diffEps()` の内蔵、ステップ単位の JSON レポート、サマリー HTML | 詳細設計済み（[evidence-report](design/evidence-report.md)）。同書 14 章の 1〜6（証跡の自動保存と実行ごとのフォルダ、ステップ単位の report.json、diffEps()、summary.html、runnora-migrate の拡張と e2e の書き換え、docgen の manifest.json の拡張）を実装済み。e2e の Windows での実行確認が残っている |
 | 4 | e2e を新形式に書き直す（見本と移行の実例） | 書き換え済み（runnora-migrate で移行し、TODO を手で対応）。旧形式はタグ `format-v1`。**Windows での実行確認（旧形式と合否が同じこと）が残っている** |
 | 5 | `runnora-migrate` を作り、先行チームへ適用する | 作成済み（[runnora-migrate](migrate.md)）。e2e の `format-v1` を入力にしたゴールデンテストあり。先行チームへの適用はこれから |
-| 6 | 契約ケースとモック参照の統一、suite の導出、OpenAPI の静的検査、サンプル生成の共通化と改善（リクエスト・レスポンスを別ファイルに、制約に沿った値に） | サンプル生成は詳細設計済み（[sample-generation](design/sample-generation.md)） |
+| 6 | 契約ケースとモック参照の統一、suite の導出、OpenAPI の静的検査、サンプル生成の共通化と改善（リクエスト・レスポンスを別ファイルに、制約に沿った値に） | サンプル生成は詳細設計済み（[sample-generation](design/sample-generation.md)）。値の決め方（同書 5.1〜5.3）を oapi2wire の `pkg/sample` に共通化し、`runnora generate` と `oapi2wire init` の初期値を一致させた |
 | 7 | docgen の入力を新形式に切り替える | 必要最小限を実施済み（e2e の書き換えに必要だったため前倒し）。`--project` / `--env` / `--suite` で `runnora.yaml` の環境・スイートの `hooks` と runbook の `runnora:` ブロックを読み、runnora と同じ順で前後処理を載せる。残り：旧形式の `--config` と `--before-sql` / `--after-sql` の廃止、HTTP 呼び出し表の URL に環境の変数を展開するか（いまは `${API_URL}` のまま表示）の決定 |
 | 8 | `generate --proto`（proto からリクエスト・期待値の雛形を生成）、JSON Schema、VSCode 拡張 | proto のサンプル生成は詳細設計済み（[sample-generation](design/sample-generation.md)） |
 

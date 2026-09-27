@@ -13,8 +13,8 @@ import (
 	"strings"
 
 	"github.com/pb33f/libopenapi"
-	"github.com/pb33f/libopenapi/datamodel/high/base"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
+	oasample "github.com/ramsesyok/oapi2wire/pkg/sample"
 )
 
 // OperationInfo は OpenAPI 定義の 1 つの operation を表す。
@@ -175,7 +175,7 @@ func buildOperationInfo(apiPath, method string, pathParams []*v3.Parameter, op *
 			}
 			if strings.Contains(strings.ToLower(pair.Key), "application/json") {
 				info.RequestBodyContentType = "application/json"
-				info.RequestBodySample = extractSampleFromMediaType(pair.Value)
+				info.RequestBodySample = extractSampleFromMediaType(pair.Value, oasample.Request)
 				break
 			}
 		}
@@ -258,46 +258,9 @@ func appendQueryParams(path string, params []ParameterInfo) string {
 	return sb.String()
 }
 
+// parameterSample はパラメータのサンプル値を返す (oapi2wire init のモックの一致条件と同じ値。pkg/sample)。
 func parameterSample(p *v3.Parameter) interface{} {
-	if p == nil {
-		return nil
-	}
-	if p.Example != nil {
-		if v := yamlNodeToInterface(p.Example); v != nil {
-			return v
-		}
-	}
-	if p.Examples != nil {
-		if pair := p.Examples.Oldest(); pair != nil && pair.Value != nil && pair.Value.Value != nil {
-			if v := yamlNodeToInterface(pair.Value.Value); v != nil {
-				return v
-			}
-		}
-	}
-	if p.Schema == nil {
-		return nil
-	}
-	schema, err := p.Schema.BuildSchema()
-	if err != nil || schema == nil {
-		return nil
-	}
-	if schemaType(schema) == "array" {
-		if v := arrayItemSample(schema); v != nil {
-			return v
-		}
-	}
-	return schemaToSample(schema, 0)
-}
-
-func arrayItemSample(schema *base.Schema) interface{} {
-	if schema == nil || schema.Items == nil || !schema.Items.IsA() || schema.Items.A == nil {
-		return nil
-	}
-	itemSchema, err := schema.Items.A.BuildSchema()
-	if err != nil || itemSchema == nil {
-		return nil
-	}
-	return schemaToSample(itemSchema, 0)
+	return oasample.Parameter(p)
 }
 
 func extractMultipartFields(mt *v3.MediaType) []MultipartField {
@@ -317,7 +280,7 @@ func extractMultipartFields(mt *v3.MediaType) []MultipartField {
 			continue
 		}
 		isFile := schemaType(propSchema) == "string" && propSchema.Format == "binary"
-		sample := schemaToSample(propSchema, 0)
+		sample := oasample.SchemaOf(propSchema, oasample.Request)
 		if isFile {
 			sample = "TODO: path/to/file"
 		}

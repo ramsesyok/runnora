@@ -11,7 +11,7 @@ require (
 	github.com/k1LoW/runn v1.9.2
 	github.com/k1LoW/stopw v0.9.2
 	github.com/pb33f/libopenapi v0.36.3
-	github.com/ramsesyok/oapi2wire v0.2.0
+	github.com/ramsesyok/oapi2wire v0.3.1-0.20260927221844-b6b6fb94777c
 	github.com/ramsesyok/runnora-diff v0.2.1
 	github.com/ryo-yamaoka/otchkiss v0.2.1
 	github.com/sijms/go-ora/v2 v2.9.0
