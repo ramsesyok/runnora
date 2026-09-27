@@ -126,6 +126,14 @@ jobs:
           jq -e '.runner == "db" and .response.results[0].rows[0].CNT == "3"' "$ev/01-check_seeded_count.json"
           jq -e '.runner == "http" and .response.status == 200 and (.response.body | length) == 3' "$ev/02-list_seeded_users.json"
 
+          # ステップ単位の結果と前後処理の記録
+          jq -e '.schemaVersion == 2 and .elapsedMs >= 0' "$run_dir/report.json"
+          jq -e '.results[] | select(.id == "PLSQL-HOOK-VERIFY")
+                 | (.steps[0] | .key == "check_seeded_count" and .result == "success" and .evidence == ["PLSQL-HOOK-VERIFY/01-check_seeded_count.json"])
+                   and all(.hooks[]; .ok)' "$run_dir/report.json"
+          jq -e '.results[] | select(.id == "PLSQL-AFTER-HOOK-FAILURE")
+                 | .hooks | map(select(.ok == false)) | length == 1 and (.[0].phase == "after") and (.[0].error | contains("ORA-20001"))' "$run_dir/report.json"
+
           docker exec -i oracle-free sqlplus -s "/ as sysdba" <<'SQL'
           WHENEVER SQLERROR EXIT FAILURE
           ALTER SESSION SET CONTAINER = FREEPDB1;

@@ -231,9 +231,9 @@ diffEps(expected, actual, rules)          rules は設定ファイルのパス�
       ],
       "steps": [
         { "key": "member_before", "index": 1, "desc": "会員 M0001 の貸出状況を確認する", "runner": "http",
-          "result": "success", "elapsedMs": 12, "evidence": "LIB-001/01-member_before.json" },
-        { "key": "member_loans[2]", "index": 15, "runner": "http", "result": "success",
-          "evidence": "LIB-001/15-member_loans[2].json" },
+          "result": "success", "elapsedMs": 12, "evidence": ["LIB-001/01-member_before.json"] },
+        { "key": "member_loans", "index": 15, "runner": "http", "result": "success",
+          "evidence": ["LIB-001/15-member_loans[0].json", "LIB-001/15-member_loans[1].json", "LIB-001/15-member_loans[2].json"] },
         { "key": "check_book", "index": 16, "runner": "test", "result": "failure",
           "error": "(steps.book_lent.res.body.availableCopies == 2) … actual 3",
           "diff": { "differences": 1, "items": [ { "path": ".availableCopies", "expected": 2, "actual": 3 } ] } }
@@ -243,8 +243,12 @@ diffEps(expected, actual, rules)          rules は設定ファイルのパス�
 }
 ```
 
-- `steps` は実行した順に、include 先と loop の回を**平らに並べる**（キーで入れ子が分かる）。`result` は `success` / `failure` / `skipped`（runn の `if` で飛ばしたもの）。
-- `evidence` は `evidenceDir` からの相対パス。証跡がないステップ（`test` だけなど）は省く。
+- `steps` は実行した順に、include 先を**平らに並べる**（キーで入れ子が分かる。`inc.call`）。
+- `result` は `success` / `failure` / `skipped`（runn の `if` で飛ばしたもの） / `notRun`（前のステップの失敗で実行しなかったもの）。
+- runn はステップの loop の回ごとの結果を持たない（1 つにまとめる）ので、loop のステップは 1 つ（キーに `[n]` を付けない）で、`evidence` に回ごとの証跡を並べる。loop で include した場合も同じく、include 先のステップは 1 つ（`twice.call`）で、証跡は回ごと（`twice[0].call`、`twice[1].call`）。
+- `evidence` は `evidenceDir` からの相対パスの配列。証跡がないステップ（`test` だけなど）は省く。
+- `index` はトップレベルのステップの番号（1 始まり）。include 先のステップは呼び出したステップの番号。
+- `diff` は `diffEps()` の実装（14 章の 3）で加える。
 - `hooks` は実行した前後処理を順に書く。失敗したものは `ok: false` と `error`（ORA-xxxxx を含む）を持つ。
 - パスはすべて `/` 区切りの相対パス（プロジェクトルート基準、証跡は `evidenceDir` 基準）。別の PC でフォルダごと開いても読める。
 - `--report-format json` で画面（`--report-out`）に出す JSON も、この形にそろえる。
@@ -339,7 +343,7 @@ runnora-docgen の `manifest.json` に、手順番号とステップのキーの
 ## 14. 実装の順序
 
 1. `internal/evidence` と実行ごとのフォルダ（`report.json` はまだ runbook 単位。証跡のファイルの一覧を runbook ごとに載せる）… 実装済み
-2. ステップ単位の `report.json` と、画面のテキストの追加行
+2. ステップ単位の `report.json` と、画面のテキストの追加行 … 実装済み
 3. `diffEps()`
 4. `summary.html`
 5. runnora-migrate の拡張と、e2e の書き換え

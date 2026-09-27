@@ -31,7 +31,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/k1LoW/runn"
 	"github.com/ramsesyok/runnora/internal/config"
@@ -41,6 +43,7 @@ import (
 	"github.com/ramsesyok/runnora/internal/project"
 	"github.com/ramsesyok/runnora/internal/reporter"
 	"github.com/ramsesyok/runnora/internal/scenario"
+	"gopkg.in/yaml.v3"
 )
 
 // AppError は終了コードを持つアプリケーションエラー。
@@ -172,6 +175,8 @@ type Plan struct {
 	EvidenceMask *evidence.Mask
 	// Warn は警告の出力先 (dump ステップの重複など)。nil なら出さない。
 	Warn io.Writer
+	// Version はレポートに載せる runnora のバージョン。
+	Version string
 }
 
 // target は 1 つの runbook と、その前後処理のファイル。
@@ -215,7 +220,9 @@ func (r *Runner) Run(ctx context.Context, plan *Plan) (*reporter.Report, error) 
 		}
 	}
 
-	report := newReport(plan)
+	started := time.Now()
+	report := newReport(plan, started)
+	defer func() { report.ElapsedMs = time.Since(started).Milliseconds() }()
 	var targets []target
 	var allFiles []string
 	for _, rb := range plan.Runbooks {
@@ -277,19 +284,18 @@ func (r *Runner) Run(ctx context.Context, plan *Plan) (*reporter.Report, error) 
 			capt = evidence.New(t.rb.ID, plan.EvidenceMode, plan.EvidenceMask)
 			opts = append(append([]runn.Option{}, base...), runn.Capture(capt))
 		}
-		actual, errMsg := r.runOne(ctx, t, exec, opts)
-		passed := actual == expect
+		out := r.runOne(ctx, t, exec, opts, plan.Root)
+		passed := out.actual == expect
 		res := reporter.RunResult{
-			ID: t.rb.ID, Path: path, Expect: expect, Actual: actual, Passed: passed, Error: errMsg,
+			ID: t.rb.ID, Desc: t.rb.Desc, Path: path, Expect: expect, Actual: out.actual, Passed: passed, Error: out.msg,
+			ElapsedMs: out.elapsed.Milliseconds(), Hooks: out.hooks, Steps: out.steps,
 		}
 		if capt != nil {
 			written, err := capt.Flush(scenarioDir, plan.EvidenceDir)
 			if err != nil && plan.Warn != nil {
 				fmt.Fprintf(plan.Warn, "警告: %s の証跡の一部を保存できませんでした: %v\n", t.rb.ID, err)
 			}
-			for _, w := range written {
-				res.Evidence = append(res.Evidence, reporter.EvidenceFile{Key: w.Key, Path: w.Path})
-			}
+			attachEvidence(res.Steps, written)
 			_ = os.Remove(scenarioDir) // 何も書かなかった場合だけ消える (中身があれば失敗する)
 		}
 		report.Results = append(report.Results, res)
@@ -326,13 +332,30 @@ func (r *Runner) Run(ctx context.Context, plan *Plan) (*reporter.Report, error) 
 	return report, nil
 }
 
-// runOne は 1 つの runbook を実行し、実際の結果 (pass / fail / hookFail) とエラー文を返す。
-func (r *Runner) runOne(ctx context.Context, t target, exec oracle.Executor, base []runn.Option) (string, string) {
+// outcome は 1 つの runbook を実行した結果。
+type outcome struct {
+	// actual は実際の結果 (pass / fail / hookFail)。msg はエラー文。
+	actual  string
+	msg     string
+	elapsed time.Duration
+	hooks   []reporter.HookResult
+	steps   []reporter.StepResult
+}
+
+// runOne は 1 つの runbook を実行し、実際の結果・前後処理・ステップの結果を返す。
+func (r *Runner) runOne(ctx context.Context, t target, exec oracle.Executor, base []runn.Option, root string) (out outcome) {
+	onFile := func(phase, file string, err error) {
+		h := reporter.HookResult{Phase: phase, File: displayPath(root, file), OK: err == nil}
+		if err != nil {
+			h.Error = err.Error()
+		}
+		out.hooks = append(out.hooks, h)
+	}
 	opts := append([]runn.Option{}, base...)
 	if len(t.before) > 0 {
 		// BeforeFunc は runn が runbook を実行する直前に呼ばれる (include 先では呼ばれない)。
 		opts = append(opts, runn.BeforeFunc(func(*runn.RunResult) error {
-			if err := hook.RunBefore(ctx, exec, t.before); err != nil {
+			if err := hook.RunBeforeWith(ctx, exec, t.before, onFile); err != nil {
 				// hookError でラップして runbook 失敗と区別できるようにする
 				return &hookError{cause: err}
 			}
@@ -342,37 +365,150 @@ func (r *Runner) runOne(ctx context.Context, t target, exec oracle.Executor, bas
 	if len(t.after) > 0 {
 		// AfterFunc は runbook が失敗していても呼ばれる (cleanup guaranteed)。
 		opts = append(opts, runn.AfterFunc(func(*runn.RunResult) error {
-			if err := hook.RunAfter(ctx, exec, t.after); err != nil {
+			if err := hook.RunAfterWith(ctx, exec, t.after, onFile); err != nil {
 				return &hookError{cause: err}
 			}
 			return nil
 		}))
 	}
 
+	start := time.Now()
+	// out は名前付きの戻り値なので、return の後でも所要時間を設定できる
+	defer func() { out.elapsed = time.Since(start) }()
+
 	// runn.Load は runbook ファイル (YAML) を読み込んで Operator を生成する。
 	op, err := runn.Load(t.rb.Path, opts...)
 	if err != nil {
 		// Load 失敗: ファイル形式不正など。runbook 失敗として扱う。
-		return scenario.OutcomeFail, err.Error()
+		out.actual, out.msg = scenario.OutcomeFail, err.Error()
+		return out
 	}
 	// RunN はロードした Operator を実行する。エラーは RunResult.Err に格納される。
 	op.RunN(ctx) //nolint:errcheck
 
-	actual, msg := scenario.OutcomePass, ""
+	out.actual = scenario.OutcomePass
+	keys := topLevelStepKeys(t.rb.Text)
 	for _, o := range op.Operators() {
 		rr := o.Result()
+		out.steps = append(out.steps, flattenSteps(rr.StepResults, "", 0, keys)...)
 		if rr.Err == nil {
 			continue
 		}
-		msg = rr.Err.Error()
+		out.msg = rr.Err.Error()
 		// BeforeFunc/AfterFunc で返した hookError は runn が RunResult.Err にそのままセットする。
 		var hErr *hookError
 		if errors.As(rr.Err, &hErr) {
-			return scenario.OutcomeHookFail, msg
+			out.actual = scenario.OutcomeHookFail
+			continue
 		}
-		actual = scenario.OutcomeFail
+		if out.actual != scenario.OutcomeHookFail {
+			out.actual = scenario.OutcomeFail
+		}
 	}
-	return actual, msg
+	return out
+}
+
+// flattenSteps は runn のステップの結果を、include 先を含めて実行順に平らに並べる。
+//
+//   - prefix は include 先のステップのキーの前に付ける呼び出し元のキー ("inc." など)。
+//   - index は include 先のステップに付けるトップレベルのステップの番号 (トップレベルでは 0)。
+//   - keys はトップレベルのステップのキー (runbook の記述順)。runn が結果を持たない (nil) ステップの
+//     キーをここから補う。
+//   - loop で include した場合、runn は回ごとの結果を持たない (最後の回だけ) ので、ステップは 1 つになる。
+//     証跡は回ごとに分かれる (attachEvidence が同じステップに付ける)。
+func flattenSteps(results []*runn.StepResult, prefix string, index int, keys []string) []reporter.StepResult {
+	var out []reporter.StepResult
+	// runn は失敗したステップの後のステップを「飛ばした」として返すので、失敗の後は実行しなかったとする
+	failed := false
+	for i, sr := range results {
+		if sr == nil {
+			if prefix == "" && i < len(keys) {
+				out = append(out, reporter.StepResult{Key: keys[i], Index: i + 1, Result: reporter.StepNotRun})
+			}
+			continue
+		}
+		key := sr.Key
+		if key == "" {
+			key = strconv.Itoa(sr.Index)
+		}
+		key = prefix + key
+		idx := index
+		if prefix == "" {
+			idx = sr.Index + 1
+		}
+		s := reporter.StepResult{
+			Key: key, Index: idx, Desc: sr.Desc, Runner: string(sr.RunnerType),
+			Result: reporter.StepSuccess, ElapsedMs: sr.Elapsed.Milliseconds(),
+		}
+		switch {
+		case sr.Skipped && failed:
+			s.Result = reporter.StepNotRun
+		case sr.Skipped:
+			s.Result = reporter.StepSkipped
+		case sr.Err != nil:
+			s.Result = reporter.StepFailure
+			s.Error = sr.Err.Error()
+			failed = true
+		}
+		out = append(out, s)
+		for j, inc := range sr.IncludedRunResults {
+			if inc == nil {
+				continue
+			}
+			p := key
+			if len(sr.IncludedRunResults) > 1 {
+				// loop で include した場合は回ごとに [n] を付ける (証跡のキーと同じ)
+				p = fmt.Sprintf("%s[%d]", key, j)
+			}
+			out = append(out, flattenSteps(inc.StepResults, p+".", idx, nil)...)
+		}
+	}
+	return out
+}
+
+// topLevelStepKeys は runbook の steps のキーを記述順に返す (steps が配列なら添字)。
+func topLevelStepKeys(text string) []string {
+	var doc struct {
+		Steps yaml.Node `yaml:"steps"`
+	}
+	if err := yaml.Unmarshal([]byte(text), &doc); err != nil {
+		return nil
+	}
+	var keys []string
+	switch doc.Steps.Kind {
+	case yaml.MappingNode:
+		for i := 0; i+1 < len(doc.Steps.Content); i += 2 {
+			keys = append(keys, doc.Steps.Content[i].Value)
+		}
+	case yaml.SequenceNode:
+		for i := range doc.Steps.Content {
+			keys = append(keys, strconv.Itoa(i))
+		}
+	}
+	return keys
+}
+
+// loopIndex は証跡のキーの中の loop の回 ("[2]") に一致する。
+var loopIndex = regexp.MustCompile(`\[\d+\]`)
+
+// attachEvidence は証跡ファイルを、同じキーのステップに付ける。
+// runn のステップの結果は loop の回をまとめて 1 つなので、見つからなければ [n] を除いたキーで探す。
+func attachEvidence(steps []reporter.StepResult, written []evidence.Written) {
+	byKey := map[string]int{}
+	for i, s := range steps {
+		if _, ok := byKey[s.Key]; !ok {
+			byKey[s.Key] = i
+		}
+	}
+	for _, w := range written {
+		i, ok := byKey[w.Key]
+		if !ok {
+			i, ok = byKey[loopIndex.ReplaceAllString(w.Key, "")]
+		}
+		if ok {
+			steps[i].Evidence = append(steps[i].Evidence, w.Path)
+		}
+	}
 }
 
 // EvidenceDirEnv は旧来の dump ステップが証跡の保存先として参照する環境変数。
@@ -429,11 +565,14 @@ func dumpWarner(w io.Writer, root string) func(*scenario.Runbook) {
 // baseRunnOptions はすべての runbook に共通の runn オプションを返す。
 //
 //   - runn.Scopes("read:parent"): runbook から親ディレクトリのファイルを読むことを許可
+//   - runn.Profile:               ステップの所要時間を測る (report.json の elapsedMs)
 //   - runn.Trace:                 トレース出力 (--trace / runn.trace)
 //   - runn.FailFast:              runbook 内で最初の失敗で停止
 func baseRunnOptions(plan *Plan) []runn.Option {
 	opts := []runn.Option{
 		runn.Scopes(append([]string{"read:parent"}, plan.Scopes...)...),
+		// runn はプロファイル (ストップウォッチ) を有効にしたときだけ、ステップの所要時間を結果に入れる
+		runn.Profile(true),
 	}
 	if plan.Trace {
 		opts = append(opts, runn.Trace(true))
@@ -444,8 +583,11 @@ func baseRunnOptions(plan *Plan) []runn.Option {
 	return opts
 }
 
-func newReport(plan *Plan) *reporter.Report {
-	rep := &reporter.Report{Project: plan.ProjectName, Suite: plan.Suite}
+func newReport(plan *Plan, started time.Time) *reporter.Report {
+	rep := &reporter.Report{
+		SchemaVersion: reporter.SchemaVersion, Runnora: plan.Version, StartedAt: started.Format(time.RFC3339),
+		Project: plan.ProjectName, Suite: plan.Suite,
+	}
 	if plan.Env != nil && plan.Env.Name != "" {
 		rep.Env = &reporter.EnvInfo{Name: plan.Env.Name, Description: plan.Env.Description, Overrides: plan.Env.Overrides}
 		if len(plan.Env.Backends) > 0 {

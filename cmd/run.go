@@ -91,6 +91,7 @@ func newRunCmd() *cobra.Command {
 			plan.Trace = trace
 			plan.FailFast = failFast
 			plan.Warn = cmd.ErrOrStderr()
+			plan.Version = Version
 
 			// 不正な形式では runbook やフックを実行しない。
 			stdoutReporter, rerr := reporter.NewReporter(reportFormat, cmd.OutOrStdout())
