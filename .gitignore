@@ -40,3 +40,5 @@ docs/faq/
 practice/
 .claude
 reports/
+# goreleaser の出力
+/dist/

@@ -1,0 +1,66 @@
+version: 2
+
+project_name: runnora
+
+# runnora 本体と、旧形式からの移行ツール runnora-migrate を同じアーカイブに入れる。
+builds:
+  - id: runnora
+    main: .
+    binary: runnora
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/ramsesyok/runnora/cmd.Version=v{{ .Version }}
+      - -X github.com/ramsesyok/runnora/cmd.Commit={{ .ShortCommit }}
+      - -X github.com/ramsesyok/runnora/cmd.BuildDate={{ .Date }}
+  - id: runnora-migrate
+    main: ./cmd/runnora-migrate
+    binary: runnora-migrate
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+  sort: asc
+  groups:
+    - title: Dependencies
+      regexp: '^.*Bump .*$'
+      order: 1
+    - title: Changes
+      order: 0
+
+release:
+  header: |
+    ## インストール
+
+    下記のアーカイブから OS / アーキテクチャに合ったもの（Windows は `runnora_{{ .Tag }}_windows_amd64.zip`）をダウンロードし、
+    展開した `runnora`（と、旧形式から移行する場合は `runnora-migrate`）を PATH の通った場所に置いてください。
+
+    ```sh
+    go install github.com/ramsesyok/runnora@{{ .Tag }}
+    go install github.com/ramsesyok/runnora/cmd/runnora-migrate@{{ .Tag }}
+    ```
