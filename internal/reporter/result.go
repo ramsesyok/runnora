@@ -32,6 +32,8 @@ type Report struct {
 	Env *EnvInfo `json:"env,omitempty"`
 	// Suite は実行したスイート名。runbook を直接指定した場合は空。
 	Suite string `json:"suite,omitempty"`
+	// EvidenceDir は証跡のフォルダ (実行ごとのフォルダからの相対パス、外なら絶対パス)。
+	EvidenceDir string `json:"evidenceDir,omitempty"`
 	// Backends は環境に宣言された裏のサービスの扱い (記録用)。
 	Backends map[string]Backend `json:"backends,omitempty"`
 
@@ -77,6 +79,14 @@ type RunResult struct {
 	Actual string `json:"actual,omitempty"`
 	Passed bool   `json:"passed"`
 	Error  string `json:"error,omitempty"`
+	// Evidence は保存した証跡ファイル (実行順)。Path は Report.EvidenceDir からの相対パス。
+	Evidence []EvidenceFile `json:"evidence,omitempty"`
+}
+
+// EvidenceFile は 1 ステップ分の証跡ファイル。
+type EvidenceFile struct {
+	Key  string `json:"key"`
+	Path string `json:"path"`
 }
 
 // Name はレポートで runbook を表す名前 (ID、なければパス) を返す。

@@ -149,6 +149,8 @@ runnora run [options] --suite <name>
 | `--trace` | — | トレースモードを有効にする |
 | `--fail-fast` | — | 最初の失敗で停止する |
 | `--scopes` | — | runn に追加で許可するスコープ（例: `run:exec`。複数指定可） |
+| `--evidence-dir` | 実行ごとのフォルダの `evidence/` | 証跡の保存先（`runnora.yaml` の `evidence.dir` より優先） |
+| `--no-evidence` | — | 証跡を保存しない（`report.json` は出力する） |
 
 `--config`、`--before-sql`、`--after-sql` は廃止しました。指定すると移行を案内して終了コード 2 で終了します。旧形式のプロジェクトは [runnora-migrate](docs/migrate.md) で移行できます。前後処理の SQL は `runnora.yaml` の `environments.<名前>.hooks` か、runbook の `runnora:` ブロックに書きます。
 
@@ -197,6 +199,24 @@ runnora run --var API_URL=http://localhost:18081 runbooks/scenarios/*.yml
 # CI 用の JUnit XML をファイルへ保存する
 runnora run --suite scenarios --report-format junit --report-out ./junit.xml
 ```
+
+**実行ごとのフォルダと証跡:** `run` は毎回、`reports/<日時>-<スイート名>/`（スイートなしは `<日時>-run`。場所は `runnora.yaml` の `report.dir`）を作り、`report.json` と証跡を保存します。終了時に「レポート: …」とその場所を表示します。
+
+```text
+reports/20260927-153012-scenarios/
+├─ report.json                       JSON レポート（--report-format によらず毎回出力）
+├─ report.xml                        --report-format junit のときだけ
+└─ evidence/
+   └─ LIB-001/                       シナリオ ID ごと
+      ├─ 01-member_before.json       <ステップの番号>-<ステップのキー>.json
+      ├─ 15-member_loans[2].json     loop の回ごと
+      └─ 08-inspect_book.call.json   include 先のステップ（キーを . でつなぐ）
+```
+
+- runbook に `dump` ステップを書かなくても、HTTP・gRPC・DB・exec の各ステップの応答が保存されます。`runnora.yaml` の `evidence.mode: full` にすると、リクエストも保存します。
+- `Authorization`・`Proxy-Authorization`・`Cookie`・`Set-Cookie` の値は常に `***` に置き換えます。ほかに隠すヘッダや本文の値は `evidence.mask` に書きます。
+- 旧来の `dump` ステップ（`{{ env.RUNNORA_EVIDENCE_DIR }}` に書くもの）も動きます。runnora が runbook ごとに `RUNNORA_EVIDENCE_DIR` をそのシナリオの証跡フォルダに設定します。自動保存と重複するので、実行時と `validate` で警告します。
+- 詳細は [証跡とレポートの詳細設計](docs/design/evidence-report.md) を参照してください（ステップ単位のレポート、サマリー HTML、`diffEps()` は順次実装します）。
 
 レポートには、プロジェクト名・環境・スイート・環境の `backends` の宣言と、runbook ごとの `id` / `expect` / `actual` (`pass` / `fail` / `hookFail` / `skipped`) / `passed` (期待どおりか) を出力します。`expect: fail` や `expect: hookFail` の runbook が期待どおりに失敗した場合は合格として数えます。形式と出力先は `runnora.yaml` の `report.format` / `report.output` でも指定でき、CLI フラグを指定した場合はそちらを優先します。
 
@@ -517,6 +537,14 @@ runn:
 report:
   format: text                         # 出力形式 (text | json | junit)
   output: ""                           # ファイル出力先 (省略時は標準出力)
+  dir: reports                         # 実行ごとのフォルダ (<日時>-<スイート名>/) を作る場所
+
+evidence:                              # 証跡の自動保存
+  dir: ""                              # 保存先 (省略時は実行ごとのフォルダの evidence/)
+  mode: response                       # response: 応答だけ / full: リクエストと応答
+  mask:                                # Authorization・Proxy-Authorization・Cookie・Set-Cookie は常に隠す
+    headers: [X-Api-Key]               # 追加で隠すヘッダ
+    paths: [.password, '.. | .token?'] # 本文の JSON で隠す場所 (jq 形式)
 
 generate:                              # generate コマンドの既定値 (パスはプロジェクトルート基準)
   openapi: openapi/library-api.yaml

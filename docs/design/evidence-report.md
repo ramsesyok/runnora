@@ -109,7 +109,6 @@ runbook ごとに 1 つの Capturer を作る（runnora は runbook を 1 本ず
   "runner": "http",
   "runnerKey": "req",
   "startedAt": "2026-09-27T15:30:14.120+09:00",
-  "elapsedMs": 18,
   "request": {
     "method": "POST",
     "url": "http://127.0.0.1:18081/loans",
@@ -129,11 +128,12 @@ runbook ごとに 1 つの Capturer を作る（runnora は runbook を 1 本ず
 | HTTP | `response`：ステータス、ヘッダ、本文 | `request`：メソッド、URL、ヘッダ、本文 |
 | gRPC | `response`：ステータス（コード・メッセージ）、ヘッダ、トレーラ、`messages`（ストリームは受信した全件） | `request`：サービス、メソッド、ヘッダ、`messages`（送信した全件） |
 | DB | `response`：結果の行（`rows`）、影響行数 | `request`：SQL |
-| exec | `response`：終了コード、標準出力、標準エラー | `request`：コマンド、標準入力 |
+| exec | `response`：標準出力、標準エラー（終了コードは runn が Capturer に渡さないので載せない。`current.exit_code` で判定する） | `request`：コマンド、シェル、標準入力 |
 | 上記以外（`test` だけのステップ、`bind` など） | 保存しない | 保存しない |
 
 - 本文が JSON として読めればオブジェクトのまま、読めなければ文字列で書く。1 MiB を超える本文は先頭 1 MiB だけ書き、`"truncated": true` を付ける。
 - ステップが失敗しても、それまでに受け取った分は書く（応答を受け取れずに失敗した場合は `request` だけ、または `error` だけになる）。今の `dump` は失敗したステップの後に書けないことがあったが、自動保存ではそれがなくなる。
+- ステップの所要時間は証跡に書かない（runn が Capturer に渡さないため）。`report.json` のステップの `elapsedMs` に書く（6 章）。
 - 前後処理の SQL（フック）は証跡に書かない。フックの失敗は `report.json` に記録する（6 章）。
 
 ### 4.3 秘密情報を隠す
@@ -338,7 +338,7 @@ runnora-docgen の `manifest.json` に、手順番号とステップのキーの
 
 ## 14. 実装の順序
 
-1. `internal/evidence` と実行ごとのフォルダ（`report.json` はまだ runbook 単位）
+1. `internal/evidence` と実行ごとのフォルダ（`report.json` はまだ runbook 単位。証跡のファイルの一覧を runbook ごとに載せる）… 実装済み
 2. ステップ単位の `report.json` と、画面のテキストの追加行
 3. `diffEps()`
 4. `summary.html`
@@ -348,6 +348,8 @@ runnora-docgen の `manifest.json` に、手順番号とステップのキーの
 1〜4 は runnora の PR を分けて出す（レビューしやすくするため）。
 
 ## 15. 実装時に確かめること
+
+実装順 1 で確かめた結果（2026-09-27）：include 先のステップ（`inc.call`）、ステップの loop の回（`poll[0]`、`poll[1]`）、`if` で飛ばしたステップ（書かない）、`test` だけのステップ（書かない）は、runn v1.9.2 の Trail から期待どおりに取れる（`internal/evidence` のテスト）。gRPC は e2e の grpc-test で確かめる。
 
 - runn の Capturer に、include 先のステップと loop の回が、期待どおりの Trail で渡されること（runn v1.9.2 のソースでは `SetCurrentTrails` がステップごとに呼ばれている）。
 - `runn.Func` で登録した関数から、実行中のステップを正しく特定できること（評価のタイミングが Capturer の `SetCurrentTrails` の後であること）。

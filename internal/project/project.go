@@ -20,6 +20,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/ramsesyok/runnora/internal/config"
+	"github.com/ramsesyok/runnora/internal/evidence"
 )
 
 // FileName はプロジェクトファイルの名前。
@@ -40,6 +41,7 @@ type Project struct {
 	Suites       map[string]*Suite       `yaml:"suites"`
 	Runn         RunnSettings            `yaml:"runn"`
 	Report       ReportSettings          `yaml:"report"`
+	Evidence     EvidenceSettings        `yaml:"evidence"`
 	Generate     config.GenerateConfig   `yaml:"generate"`
 
 	// Path は読み込んだ runnora.yaml の絶対パス。
@@ -112,8 +114,27 @@ type RunnSettings struct {
 
 // ReportSettings はレポートの既定値。
 type ReportSettings struct {
+	// Format / Output は画面 (または Output のファイル) に出すレポートの形式と出力先。
 	Format string `yaml:"format"`
 	Output string `yaml:"output"`
+	// Dir は実行ごとのフォルダ (<日時>-<スイート名>) を作る場所。既定は reports (プロジェクトルート基準)。
+	Dir string `yaml:"dir"`
+}
+
+// EvidenceSettings は証跡の自動保存の設定 (docs/design/evidence-report.md の 3.2)。
+type EvidenceSettings struct {
+	// Dir は証跡の保存先。省略時は実行ごとのフォルダの evidence/。
+	Dir string `yaml:"dir"`
+	// Mode は response (応答だけ。既定) か full (リクエストと応答)。
+	Mode string       `yaml:"mode"`
+	Mask EvidenceMask `yaml:"mask"`
+}
+
+// EvidenceMask は証跡で追加で隠すもの。決まったヘッダ (Authorization など) は設定によらず隠す。
+type EvidenceMask struct {
+	Headers []string `yaml:"headers"`
+	// Paths は本文の JSON で隠す場所 (jq 形式)。
+	Paths []string `yaml:"paths"`
 }
 
 // LegacyError は旧形式の設定を検出したことを表す。
@@ -247,6 +268,14 @@ func (p *Project) validate() error {
 				errs = append(errs, fmt.Errorf("suites.%s.env: 環境 %q が environments にありません", name, s.Env))
 			}
 		}
+	}
+	switch p.Evidence.Mode {
+	case "", string(evidence.ModeResponse), string(evidence.ModeFull):
+	default:
+		errs = append(errs, fmt.Errorf("evidence.mode: %q は使えません (response / full)", p.Evidence.Mode))
+	}
+	if err := evidence.ValidatePaths(p.Evidence.Mask.Paths); err != nil {
+		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
 }

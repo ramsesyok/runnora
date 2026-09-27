@@ -3,11 +3,14 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/ramsesyok/runnora/internal/app"
+	"github.com/ramsesyok/runnora/internal/evidence"
 	"github.com/ramsesyok/runnora/internal/project"
 	"github.com/ramsesyok/runnora/internal/reporter"
 	"github.com/ramsesyok/runnora/internal/scenario"
@@ -32,6 +35,8 @@ func newRunCmd() *cobra.Command {
 		trace        bool
 		failFast     bool
 		scopes       []string
+		evidenceDir  string
+		noEvidence   bool
 	)
 
 	cmd := &cobra.Command{
@@ -85,6 +90,7 @@ func newRunCmd() *cobra.Command {
 			plan.Scopes = scopes
 			plan.Trace = trace
 			plan.FailFast = failFast
+			plan.Warn = cmd.ErrOrStderr()
 
 			// 不正な形式では runbook やフックを実行しない。
 			stdoutReporter, rerr := reporter.NewReporter(reportFormat, cmd.OutOrStdout())
@@ -92,12 +98,39 @@ func newRunCmd() *cobra.Command {
 				return &app.AppError{ExitCode: 2, Cause: rerr}
 			}
 
+			// 実行ごとのフォルダ (reports/<日時>-<スイート名>/) と証跡の設定
+			ev := evidenceOptions{flagDir: evidenceDir, disabled: noEvidence}
+			reportDir := ""
+			if lp.P != nil {
+				ev.projectDir = lp.P.Evidence.Dir
+				reportDir = lp.P.Report.Dir
+				plan.EvidenceMode = evidence.Mode(lp.P.Evidence.Mode)
+				plan.EvidenceMask, err = evidence.NewMask(lp.P.Evidence.Mask.Headers, lp.P.Evidence.Mask.Paths)
+				if err != nil {
+					return &app.AppError{ExitCode: 2, Cause: err}
+				}
+			}
+			folder, ferr := newRunFolder(lp.Root, reportDir, suiteName, time.Now(), ev)
+			if ferr != nil {
+				return &app.AppError{ExitCode: 5, Cause: fmt.Errorf("report: %w", ferr)}
+			}
+			plan.EvidenceDir = folder.EvidenceDir
+
 			runner := app.NewRunner()
 			report, err := runner.Run(cmd.Context(), plan)
+			if report == nil {
+				folder.removeIfEmpty()
+			}
 
 			// report != nil なら runbook は少なくとも一部実行されている。
 			// エラーがあっても先にレポートを出力し、その後エラーを返す。
 			if report != nil {
+				report.EvidenceDir = folder.relEvidenceDir()
+				jsonPath, werr := folder.writeReports(report, reportFormat)
+				if werr != nil {
+					return werr
+				}
+				defer fmt.Fprintf(cmd.ErrOrStderr(), "レポート: %s\n", displayRel(jsonPath))
 				rep := stdoutReporter
 				if reportOut != "" {
 					r, rerr := reporter.NewFileReporter(reportFormat, reportOut)
@@ -131,9 +164,24 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&trace, "trace", false, "トレースモードを有効にする")
 	cmd.Flags().BoolVar(&failFast, "fail-fast", false, "最初の失敗で停止する")
 	cmd.Flags().StringSliceVar(&scopes, "scopes", nil, "runn に追加で許可するスコープ（例: run:exec）")
+	cmd.Flags().StringVar(&evidenceDir, "evidence-dir", "", "証跡の保存先 (省略時は runnora.yaml の evidence.dir、なければ実行ごとのフォルダの evidence/)")
+	cmd.Flags().BoolVar(&noEvidence, "no-evidence", false, "証跡を保存しない")
 	addLegacyFlags(cmd, "config", "before-sql", "after-sql")
 
 	return cmd
+}
+
+// displayRel は、カレントディレクトリの下にあるパスを相対パスで返す (表示用)。
+func displayRel(path string) string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return path
+	}
+	rel, err := filepath.Rel(cwd, path)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return path
+	}
+	return rel
 }
 
 // buildRunPlan は runnora.yaml と引数から実行内容を組み立てる。

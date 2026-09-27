@@ -92,6 +92,10 @@ func TestParse(t *testing.T) {
 		{name: "suite env unknown", yaml: "version: 2\nsuites:\n  s:\n    env: dev\n    select:\n      paths: [a.yml]\n", wantErr: "suites.s.env"},
 		{name: "suite without paths", yaml: "version: 2\nsuites:\n  s:\n    select: {}\n", wantErr: "suites.s.select.paths"},
 		{name: "backend mode invalid", yaml: "version: 2\nenvironments:\n  e:\n    backends:\n      calc: { mode: fake }\n", wantErr: "backends.calc.mode"},
+		{name: "evidence settings", yaml: "version: 2\nreport:\n  dir: out\nevidence:\n  dir: ev\n  mode: full\n  mask:\n    headers: [X-Api-Key]\n    paths: [.password, '.. | .token?']\n"},
+		{name: "evidence mode invalid", yaml: "version: 2\nevidence:\n  mode: all\n", wantErr: "evidence.mode"},
+		{name: "evidence mask path invalid", yaml: "version: 2\nevidence:\n  mask:\n    paths: ['.a[']\n", wantErr: "evidence.mask.paths"},
+		{name: "evidence unknown key", yaml: "version: 2\nevidence:\n  mask:\n    header: [X]\n", wantErr: "header"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
