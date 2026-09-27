@@ -53,7 +53,7 @@ runnora / oapi2wire / runnora-diff / runnora-docgen / runnora-e2e のベータ�
 
 | ツール | 位置づけ |
 |---|---|
-| runnora | 中核の CLI。generate / mock / run / doc 連携の入口 |
+| runnora | 中核の CLI。generate / mock / run / doc 連携の入口。いまの `genmock` サブコマンドは `mock` に改名する（`runnora mock init` / `build` / `validate`） |
 | oapi2wire | Go ライブラリ（`pkg/oapi2wire`）として runnora が取り込む。**単体 CLI も存続**する（フロントチームは runnora も Oracle も使わず、oapi2wire と WireMock だけで使う） |
 | runnora-diff | Go ライブラリ（`jsondiff`）として runnora が取り込み、runn の組み込み関数にする。単体 CLI も存続する |
 | runnora-docgen | 別バイナリのまま。Quarto / ddq の様式という関心事とリリースサイクルが違うため。runbook と `runnora.yaml` をファイル契約として読む |
