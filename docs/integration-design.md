@@ -1,7 +1,8 @@
 # runnora ツール群 連携設計（方針）
 
 作成日: 2026-09-26
-状態: 方針合意。各項目の詳細設計・実装はこれから。
+更新日: 2026-09-27
+状態: 方針合意。実施順 1・2・4・5 と 7 の一部を実装済み（進み具合は 11 章）。
 
 runnora / oapi2wire / runnora-diff / runnora-docgen / runnora-e2e のベータ版完成を受けて、ツール間の連携を見直した結果をまとめる。
 個別ツールの仕様ではなく、ツール群としての役割分担・データの持ち方・実施順を定める。
@@ -70,7 +71,7 @@ runnora / oapi2wire / runnora-diff / runnora-docgen / runnora-e2e のベータ�
 runnora が扱うのは、テストの実行・判定・証跡・モック・文書の原稿までとする（2026-09-27 決定）。**テスト対象の環境の起動**（DB、API・gRPC サーバ、WireMock の起動と停止、応答するまでの待ち合わせ）は扱わず、docker compose・CI・短いスクリプトに任せる。
 
 - プロセス管理、ログ、後始末、OS ごとの違いを runnora が抱えると、docker compose や CI の機能と重なるため。
-- 新形式に書き直した runnora-e2e（実施順 4）を、「残るスクリプトは環境の起動だけ」という最小の見本にする。README に、スクリプトが残る範囲とその理由を書く。
+- 新形式に書き直した runnora-e2e（実施順 4）を、「残るスクリプトは環境の起動だけ」という最小の見本にする。README に、スクリプトが残る範囲とその理由を書く（2026-09-27 に書き換え済み。runnora-e2e の README「runnora.yaml とスクリプトの分担」）。
 
 ## 4. テストレベル
 
@@ -141,6 +142,7 @@ runners:
 - 1 ファイルを見ればシナリオの前提が分かる。レビューも移行もファイル単位で済む。
 - `runnora run runbooks/scenarios/*.yml` だけで、固有の SQL も含めて正しく実行される。
 - docgen も同じブロックを読むので、`--before-sql` を二重に指定しなくてよい。runnora と docgen の `--before-sql` / `--after-sql` は廃止し、前後処理の指定はブロックと `runnora.yaml` に一本化する（[format-v2](design/format-v2.md) の 5.3）。
+  - runnora は廃止済み。docgen は `runnora.yaml` とブロックを読むようにしたが、旧形式の `--config` と追加の `--before-sql` / `--after-sql` は、先行チームの移行が済むまで残している（実施順 7 の残り）。
 - runn（v1.9.2）はトップレベルの未知のキーを無視するため、このブロックがあっても runbook はそのまま runn に渡せる（確認済み。詳細は [format-v2](design/format-v2.md) の 2 章）。
 
 ### 5.3 モックと契約テストのケース
@@ -331,13 +333,24 @@ runnora-e2e を移行する過程で、「同じスイートを複数の環境�
 
 | # | 内容 | 状態 |
 |---|---|---|
-| 1 | すぐ直す：grpc-test の runnora-diff ビルド、oapi2wire の mapping id を安定化、e2e README の古い記述 | 対応済み（各リポジトリの作業ブランチ） |
-| 2 | 新形式を固める：`runnora.yaml`、`runnora:` ブロック、変数展開、`version: 2` | 実装済み（[format-v2](design/format-v2.md)。実装で決めた細部は同書の 14 章） |
-| 3 | runtime：証跡の自動保存、`diffEps()` の内蔵、ステップ単位の JSON レポート、サマリー HTML | |
-| 4 | e2e を新形式に書き直す（見本と移行の実例） | 実施順 5 の後に行う（2026-09-27 に順序を入れ替え）。runnora-migrate で書き換えてから TODO を手で仕上げる |
+| 1 | すぐ直す：grpc-test の runnora-diff ビルド、oapi2wire の mapping id を安定化、e2e README の古い記述 | 対応済み（各リポジトリの main にマージ済み） |
+| 2 | 新形式を固める：`runnora.yaml`、`runnora:` ブロック、変数展開、`version: 2` | 実装済み（[format-v2](design/format-v2.md)。実装で決めた細部は同書の 14 章）。旧形式の最終版はタグ `v0.3.0` |
+| 3 | runtime：証跡の自動保存、`diffEps()` の内蔵、ステップ単位の JSON レポート、サマリー HTML | 次に着手する |
+| 4 | e2e を新形式に書き直す（見本と移行の実例） | 書き換え済み（runnora-migrate で移行し、TODO を手で対応）。旧形式はタグ `format-v1`。**Windows での実行確認（旧形式と合否が同じこと）が残っている** |
 | 5 | `runnora-migrate` を作り、先行チームへ適用する | 作成済み（[runnora-migrate](migrate.md)）。e2e の `format-v1` を入力にしたゴールデンテストあり。先行チームへの適用はこれから |
 | 6 | 契約ケースとモック参照の統一、suite の導出、OpenAPI の静的検査、サンプル生成の共通化と改善（リクエスト・レスポンスを別ファイルに、制約に沿った値に） | サンプル生成は詳細設計済み（[sample-generation](design/sample-generation.md)） |
-| 7 | docgen の入力を新形式に切り替える | |
+| 7 | docgen の入力を新形式に切り替える | 必要最小限を実施済み（e2e の書き換えに必要だったため前倒し）。`--project` / `--env` / `--suite` で `runnora.yaml` の環境・スイートの `hooks` と runbook の `runnora:` ブロックを読み、runnora と同じ順で前後処理を載せる。残り：旧形式の `--config` と `--before-sql` / `--after-sql` の廃止、HTTP 呼び出し表の URL に環境の変数を展開するか（いまは `${API_URL}` のまま表示）の決定 |
 | 8 | `generate --proto`（proto からリクエスト・期待値の雛形を生成）、JSON Schema、VSCode 拡張 | proto のサンプル生成は詳細設計済み（[sample-generation](design/sample-generation.md)） |
 
 優先順位は、先行チーム（手書きシナリオ中心）に効く 2・3 を先にし、契約テスト周りの 6 を後にしている。
+
+実施順 4（e2e の書き換え）で見つかり、その場で直したこと（2026-09-27）:
+
+| 見つかったこと | 対応 |
+|---|---|
+| 同じスイートを複数の環境で流し、一部の環境でだけ前提データを作る書き方ができない | スイートの前後処理（`suites.<名前>.hooks`）を追加（9 章、[format-v2](design/format-v2.md) の 5.3） |
+| `runnora generate` の suite に `runnora:` ブロックがなく、スイートで選べない（スイートの前後処理を付けられない） | `generate` が suite に `id: GEN-<operationId>` のブロックを付ける（template には付けない） |
+| `runnora coverage` が `runnora.yaml` の変数を展開せず、接続先を `${API_URL}` と書いた runbook を黙って読み飛ばす | `coverage` を `run` と同じ規則（`--project` / `--env` / `--suite` / `--var`）で変数を展開するように修正 |
+| docgen が旧形式の `config.yaml` と `--before-sql` を前提にしていて、手順書を作れない | 実施順 7 を必要最小限だけ前倒し（上表） |
+| シナリオをスイートでまとめて流すと、証跡（`dump`）のファイル名が重なる | e2e ではファイル名の先頭にシナリオを付けて回避。実施順 3 の証跡の自動保存では、保存先をシナリオ ID ごとに分ける |
+| loop で template を include する suite は、runn のカバレッジ集計の対象にならない | runn の仕様。e2e では template を指定して集計する（README に注記） |
