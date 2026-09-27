@@ -32,7 +32,9 @@ type Resolved struct {
 	// Oracle はフック用の接続設定。HasOracle が false なら未設定。
 	Oracle    config.OracleConfig
 	HasOracle bool
-	// Before / After は環境の共通フック (絶対パス)。
+	// Before / After は全 runbook に共通の前後処理 (絶対パス)。
+	// before は 環境の hooks.before → スイートの hooks.before、
+	// after は スイートの hooks.after → 環境の hooks.after の順。
 	Before []string
 	After  []string
 	// Backends は裏のサービスの扱い (記録用)。
@@ -154,6 +156,17 @@ func (p *Project) Resolve(envName, suiteName string, cli map[string]string, look
 	}
 	for i, f := range env.Hooks.After {
 		res.After = append(res.After, p.Abs(expand(f, fmt.Sprintf("%s.hooks.after[%d]", envPath, i))))
+	}
+	if suite != nil {
+		suitePath := "suites." + suiteName
+		for i, f := range suite.Hooks.Before {
+			res.Before = append(res.Before, p.Abs(expand(f, fmt.Sprintf("%s.hooks.before[%d]", suitePath, i))))
+		}
+		var suiteAfter []string
+		for i, f := range suite.Hooks.After {
+			suiteAfter = append(suiteAfter, p.Abs(expand(f, fmt.Sprintf("%s.hooks.after[%d]", suitePath, i))))
+		}
+		res.After = append(suiteAfter, res.After...)
 	}
 	if p.Report.Output != "" {
 		res.ReportOutput = expand(p.Report.Output, "report.output")

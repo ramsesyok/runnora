@@ -262,6 +262,11 @@ suites:
     select:
       paths: [runbooks/*.yml]
       ids: [NOPE]
+  with-hooks:
+    select:
+      paths: [runbooks/*.yml]
+    hooks:
+      before: [sql/suite_setup.sql]
 `)
 	f.write("runbooks/s1.yml", scenarioRunbook("S-1", "", "/ok"))
 	f.write("runbooks/s2.yml", "desc: s2\nrunnora:\n  id: S-2\n  before: [sql/missing.sql]\n  envs: [staging]\nsteps:\n  inc:\n    include: parts/p.yml\n")
@@ -288,7 +293,7 @@ suites:
 		t.Fatalf("invalid JSON: %v\n%s", err, stdout)
 	}
 	all := stdout
-	for _, want := range []string{"sql/common.sql", "sql/missing.sql", "NOPE", `staging`} {
+	for _, want := range []string{"sql/common.sql", "sql/missing.sql", "NOPE", `staging`, "sql/suite_setup.sql"} {
 		if !strings.Contains(all, want) {
 			t.Errorf("validate output should mention %q:\n%s", want, stdout)
 		}
