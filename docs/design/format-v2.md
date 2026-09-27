@@ -329,7 +329,7 @@ runnora run [--project runnora.yaml] [--env <名前>] [--suite <名前>] [--var 
 ### 7.3 その他のコマンド
 
 - `list`：`runnora.id` と、選ばれるスイートを表示する列を追加する。
-- `generate`：設定を `runnora.yaml` の `generate` から読む（`--config` を `--project` に置き換える）。生成する template の endpoint は、いまと同じく `${RUNNORA_BASE_URL}` とする（環境の `vars` で与える）。
+- `generate`：設定を `runnora.yaml` の `generate` から読む（`--config` を `--project` に置き換える）。生成する template の endpoint は、いまと同じく `${RUNNORA_BASE_URL}` とする（環境の `vars` で与える）。生成する suite には `runnora:` ブロック（`id: GEN-<operationId>`。operationId がなければ `GEN-<method>_<path>` のファイル名部分）を付け、スイートの `paths` で選べるようにする（template には付けないので選ばれない）。前後処理と期待する結果は、生成物を手で編集せず、スイートの `hooks` で与える。
 - `init`：`config.yaml` の代わりに `runnora.yaml` の雛形を作る。
 
 ## 8. レポートへの追加項目

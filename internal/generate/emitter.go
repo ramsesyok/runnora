@@ -236,6 +236,15 @@ func EmitSuite(outDir string, op *OperationInfo, casePaths []string, force bool)
 	return path, nil
 }
 
+// suiteID は生成した suite の runnora: ブロックの id を返す (例: GEN-getBook)。
+// operationId がない operation は、ファイル名に使う operation キーで代用する。
+func suiteID(op *OperationInfo) string {
+	if op.OperationID != "" {
+		return "GEN-" + op.OperationID
+	}
+	return "GEN-" + safeFileSegment(op.OperationKey)
+}
+
 // buildSuiteContent は suite runbook の YAML 文字列を組み立てる。
 func buildSuiteContent(op *OperationInfo, outDir string, casePaths []string) string {
 	var sb strings.Builder
@@ -248,6 +257,11 @@ func buildSuiteContent(op *OperationInfo, outDir string, casePaths []string) str
 		desc = strings.ToUpper(op.Method) + " " + op.Path
 	}
 	sb.WriteString("desc: " + yamlScalar(desc+" suite") + "\n")
+
+	// runnora: ブロック。runnora.yaml のスイートは、このブロックを持つ runbook だけを選ぶ。
+	// id は手で作る契約テストと重ならないよう GEN- を付ける。
+	sb.WriteString("runnora:\n")
+	sb.WriteString("  id: " + yamlScalar(suiteID(op)) + "\n")
 
 	// labels
 	sb.WriteString("labels:\n")

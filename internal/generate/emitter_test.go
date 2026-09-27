@@ -8,6 +8,9 @@ import (
 	"testing"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/ramsesyok/runnora/internal/project"
+	"github.com/ramsesyok/runnora/internal/scenario"
 )
 
 func TestBuildCaseDataMarshalKeepsTopLevelFieldOrder(t *testing.T) {
@@ -282,5 +285,42 @@ func TestGeneratedYAMLQuotesOpenAPIText(t *testing.T) {
 				t.Fatalf("OpenAPI text added a runner: %+v", parsed.Runners)
 			}
 		}
+	}
+}
+
+// 生成した suite は runnora: ブロックを持ち、runnora.yaml のスイートで選べる。template は選ばれない。
+func TestEmitSuite_SelectableBySuite(t *testing.T) {
+	cases := []struct {
+		name   string
+		op     OperationInfo
+		wantID string
+	}{
+		{name: "operationId", op: OperationInfo{Method: "get", Path: "/books/{id}", OperationID: "getBook", OperationKey: "get_getBook", PrimaryTag: "books"}, wantID: "GEN-getBook"},
+		{name: "no operationId", op: OperationInfo{Method: "get", Path: "/health", OperationKey: "get_health", PrimaryTag: "default"}, wantID: "GEN-get_health"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			outDir := t.TempDir()
+			op := tc.op
+			op.RunbookPath = op.Path
+			op.ExpectStatus = 200
+			if _, err := EmitTemplate(outDir, &op, "spec.yaml", "req", false); err != nil {
+				t.Fatal(err)
+			}
+			casePath, err := EmitCase(outDir, &op, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := EmitSuite(outDir, &op, []string{casePath}, false); err != nil {
+				t.Fatal(err)
+			}
+			rbs, err := scenario.Select(outDir, project.Selection{Paths: []string{"runbooks/generated/**/*.yml"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(rbs) != 1 || rbs[0].ID != tc.wantID || !strings.HasSuffix(rbs[0].Path, ".suite.yml") {
+				t.Fatalf("selected %d runbooks: %+v", len(rbs), rbs)
+			}
+		})
 	}
 }

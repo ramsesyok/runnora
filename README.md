@@ -502,6 +502,9 @@ suites:
       TOLERANCE_RULES: rules/integration.yaml
     hooks:                                # このスイートを実行するときだけの前後処理
       before: [sql/cases/integration_setup.sql]
+  generated:
+    select:
+      paths: [runbooks/generated/**/*.suite.yml]   # generate が作る suite は runnora: ブロック (id: GEN-<operationId>) を持つ
 
 runn:
   scopes: [run:exec]                   # runn に追加で許可するスコープ
