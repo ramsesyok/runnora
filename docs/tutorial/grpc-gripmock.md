@@ -37,7 +37,6 @@ go install github.com/bavix/gripmock/v3@v3.17.1
 
 ```text
 docs/tutorial/grpc/
-├─ config.example.yaml
 ├─ proto/
 │  ├─ unary.proto
 │  ├─ client_streaming.proto
@@ -62,9 +61,8 @@ docs/tutorial/grpc/
 | `proto/` | gRPCサービスとメッセージの定義 |
 | `stubs/` | GripMockが照合する入力と返す出力 |
 | `runbooks/` | runnoraが送るリクエストとレスポンスの検証 |
-| `config.example.yaml` | Oracleフックを使わずにrunbookを実行する設定 |
 
-通信方式ごとに、proto、stub、runbookが1対1で対応しています。
+通信方式ごとに、proto、stub、runbookが1対1で対応しています。Oracleフックを使わないため、プロジェクトファイル（`runnora.yaml`）なしで実行できます。
 
 | 通信方式 | protoのRPC定義 | runnoraの送信 | runnoraの受信 | GripMock stub |
 |---|---|---|---|---|
@@ -152,7 +150,6 @@ test: |
 
 ```bash
 runnora run \
-  --config docs/tutorial/grpc/config.example.yaml \
   docs/tutorial/grpc/runbooks/unary.yml
 ```
 
@@ -205,7 +202,6 @@ test: |
 
 ```bash
 runnora run \
-  --config docs/tutorial/grpc/config.example.yaml \
   docs/tutorial/grpc/runbooks/client_streaming.yml
 ```
 
@@ -247,7 +243,6 @@ test: |
 
 ```bash
 runnora run \
-  --config docs/tutorial/grpc/config.example.yaml \
   docs/tutorial/grpc/runbooks/server_streaming.yml
 ```
 
@@ -290,7 +285,6 @@ test: |
 
 ```bash
 runnora run \
-  --config docs/tutorial/grpc/config.example.yaml \
   docs/tutorial/grpc/runbooks/bidirectional_streaming.yml
 ```
 
@@ -300,7 +294,6 @@ runnora run \
 
 ```bash
 runnora run \
-  --config docs/tutorial/grpc/config.example.yaml \
   docs/tutorial/grpc/runbooks/unary.yml \
   docs/tutorial/grpc/runbooks/client_streaming.yml \
   docs/tutorial/grpc/runbooks/server_streaming.yml \

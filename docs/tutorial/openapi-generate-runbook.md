@@ -429,24 +429,26 @@ suite runbook を実行すると、次の順に処理されます。
 
 API の接続先は `RUNNORA_BASE_URL` で指定します。
 
-`runnora run` はデフォルトで `./config.yaml` を読み込みます。このチュートリアルではリポジトリ直下ではなく `practice/config.yaml` を使います。SQL フックを使わないため、`oracle.dsn` は空のままで構いません。
+`runnora run` は、カレントディレクトリから親へ向かって見つけたプロジェクトファイル `runnora.yaml` を読み込みます。このチュートリアルではリポジトリ直下ではなく `practice/runnora.yaml` を作り、`--project` で指定します。SQL フックを使わないため、`oracle` はコメントのままで構いません。
+
+`RUNNORA_BASE_URL` は `runnora.yaml` の `environments.local.vars` にも書けます。同じ名前の OS の環境変数があれば、そちらが優先されます。
 
 ```bash
-runnora init --out practice/config.yaml --force
+runnora init --out practice/runnora.yaml --force
 ```
 
 PowerShell の例:
 
 ```powershell
 $env:RUNNORA_BASE_URL = "https://petstore3.swagger.io/api/v3"
-runnora run --config practice/config.yaml practice/runbooks/generated/pet/get_findPetsByStatus.suite.yml
+runnora run --project practice/runnora.yaml practice/runbooks/generated/pet/get_findPetsByStatus.suite.yml
 ```
 
 Bash の例:
 
 ```bash
 export RUNNORA_BASE_URL="https://petstore3.swagger.io/api/v3"
-runnora run --config practice/config.yaml practice/runbooks/generated/pet/get_findPetsByStatus.suite.yml
+runnora run --project practice/runnora.yaml practice/runbooks/generated/pet/get_findPetsByStatus.suite.yml
 ```
 
 実行に失敗した場合は、まず次の順に確認します。
@@ -629,7 +631,7 @@ OpenAPI から operation が削除された場合、その operation の generat
 再生成と case 修正が終わったら、suite runbook を実行します。
 
 ```bash
-runnora run --config practice/config.yaml practice/runbooks/generated/pet/get_findPetsByStatus.suite.yml
+runnora run --project practice/runnora.yaml practice/runbooks/generated/pet/get_findPetsByStatus.suite.yml
 ```
 
 OpenAPI 更新後に失敗したテストは、API の変更を検知できたという意味では役に立っています。失敗内容を見て、case、期待値、または API 側のどれを直すべきか判断します。

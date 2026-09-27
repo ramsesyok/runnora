@@ -1,5 +1,7 @@
 # runnora 基本設計書
 
+> **注意:** 本書の設定ファイル (`config.yaml`) と `--config` / `--before-sql` / `--after-sql` に関する記述は旧形式のものです。現在はプロジェクトファイル `runnora.yaml` と runbook の `runnora:` ブロックを使います。詳細は [新形式 (v2) 詳細設計](design/format-v2.md) を参照してください。
+
 ## 1. 文書目的
 
 本書は、WebAPI および gRPC のシナリオテストツール `runnora` の基本設計を定義するものである。
