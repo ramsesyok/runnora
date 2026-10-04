@@ -1,0 +1,20 @@
+name: License notices
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  notices:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Check notices for all release platforms
+        run: go run scripts/licenses.go -check

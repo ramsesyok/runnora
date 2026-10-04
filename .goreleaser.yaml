@@ -3,6 +3,10 @@ version: 2
 project_name: runnora
 
 # runnora 本体と、旧形式からの移行ツール runnora-migrate を同じアーカイブに入れる。
+before:
+  hooks:
+    - go run scripts/licenses.go
+
 builds:
   - id: runnora
     main: .
@@ -39,6 +43,7 @@ archives:
     files:
       - LICENSE
       - README.md
+      - THIRD_PARTY_NOTICES.md
 
 checksum:
   name_template: checksums.txt
