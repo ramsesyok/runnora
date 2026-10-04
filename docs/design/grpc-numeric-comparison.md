@@ -33,18 +33,18 @@ runnora-diff の既定の型比較、数値文字列の明示指定、絶対・�
 2026-10-05 のローカル検証結果（Windows / Go 1.26）:
 
 - runnora-diff: `go test -race ./...`、`go vet ./...`、`go mod tidy -diff` が通過。
-- runnora: `go test -race ./internal/diffeps ./internal/app`、`go vet ./...` が通過。公開コミットへの依存を固定し、`GOWORK=off` でも両チェックが通過。descriptor が取得できない場合のエラーと、設定キャッシュに自動生成したパスが残らないことも検証。
+- runnora: `go test -race ./internal/diffeps ./internal/app`、`go vet ./...` が通過。正式版 runnora-diff v0.2.2 を使用し、`GOWORK=off` でも両チェックが通過。descriptor が取得できない場合のエラーと、設定キャッシュに自動生成したパスが残らないことも検証。
 - runnora の `go test ./...` は cmd のパス表記、migrate の Git 作業ツリー / golden、evidence の既存テストで失敗。変更前の HEAD を別ディレクトリに展開して実行し、同じ失敗が再現することを確認。
 - runnora の `go mod tidy -diff` に残る yaml/v4 の direct / indirect 分類と go.sum の差分も変更前の HEAD で再現。今回の変更では整理しない。
 - staticcheck はインストール済みバイナリが Go 1.24.3 でビルドされており、Go 1.26 の export data を読めないため未検証。
 
 ## ローカル開発
 
-新しい runnora-diff のリリース前は、go.mod を先行 PR の公開コミットに固定する。これにより runnora 単独でビルドと検証ができる。両リポジトリを同時に修正する場合は Go workspace で連携できる（go.work は既存の .gitignore の対象）。
+go.mod は正式版 runnora-diff v0.2.2 に依存しており、runnora 単独でビルドと検証ができる。両リポジトリを同時に修正する場合は Go workspace で連携できる（go.work は既存の .gitignore の対象）。
 
 ```sh
 go work init . ../json-diff-with-epsilon
 go test ./...
 ```
 
-runnora のリリース前には runnora-diff を先にリリースし、go.mod の依存バージョンをそのリリースに更新する。公開していないバージョンを仮に指定したり、配布用の go.mod にローカル replace を残したりしない。
+runnora-diff の API を追加変更する場合も、runnora のリリース前には runnora-diff を先にリリースし、go.mod の依存バージョンをそのリリースに更新する。依存を更新した際は `go run scripts/licenses.go` で THIRD_PARTY_NOTICES.md を再生成する。公開していないバージョンを仮に指定したり、配布用の go.mod にローカル replace を残したりしない。
