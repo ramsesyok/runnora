@@ -142,7 +142,7 @@ For each module, the source archive below provides its exact, unmodified version
 | github.com/pkg/errors | v0.9.1 | [source archive](https://proxy.golang.org/github.com/pkg/errors/@v/v0.9.1.zip) |
 | github.com/pkg/term | v1.2.0-beta.2 | [source archive](https://proxy.golang.org/github.com/pkg/term/@v/v1.2.0-beta.2.zip) |
 | github.com/ramsesyok/oapi2wire | v0.3.1-0.20261004122248-6d6bb9d81099 | [source archive](https://proxy.golang.org/github.com/ramsesyok/oapi2wire/@v/v0.3.1-0.20261004122248-6d6bb9d81099.zip) |
-| github.com/ramsesyok/runnora-diff | v0.2.1 | [source archive](https://proxy.golang.org/github.com/ramsesyok/runnora-diff/@v/v0.2.1.zip) |
+| github.com/ramsesyok/runnora-diff | v0.2.2 | [source archive](https://proxy.golang.org/github.com/ramsesyok/runnora-diff/@v/v0.2.2.zip) |
 | github.com/remyoudompheng/bigfft | v0.0.0-20230129092748-24d4a6f8daec | [source archive](https://proxy.golang.org/github.com/remyoudompheng/bigfft/@v/v0.0.0-20230129092748-24d4a6f8daec.zip) |
 | github.com/rivo/uniseg | v0.4.7 | [source archive](https://proxy.golang.org/github.com/rivo/uniseg/@v/v0.4.7.zip) |
 | github.com/rs/xid | v1.6.0 | [source archive](https://proxy.golang.org/github.com/rs/xid/@v/v1.6.0.zip) |
@@ -14312,9 +14312,9 @@ SOFTWARE.
 ```
 
 
-## github.com/ramsesyok/runnora-diff@v0.2.1
+## github.com/ramsesyok/runnora-diff@v0.2.2
 
-Source: https://proxy.golang.org/github.com/ramsesyok/runnora-diff/@v/v0.2.1.zip
+Source: https://proxy.golang.org/github.com/ramsesyok/runnora-diff/@v/v0.2.2.zip
 
 ### LICENSE
 

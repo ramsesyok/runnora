@@ -255,6 +255,25 @@ steps:
 - 差分の全件は証跡の `<番号>-<キー>.diff.json`（runnora-diff の `--format json` と同じ形）に保存します。そのステップが失敗した場合は、`report.json` の `steps[].diffs` とテキストのレポートに、件数と最初の差分を出します。
 - 設定ファイルが読めない、形式が誤っている場合は、そのステップが失敗します（エラーの内容を表示します）。
 
+**gRPC の64ビット整数:** `diffEps()` は、runn が登録した RPC レスポンスの descriptor から、`int64` / `uint64` / `sint64` / `fixed64` / `sfixed64` のフィールドを自動判定します。数値の期待値と、ProtoJSON の数値文字列を、精度を保って比較し、許容誤差も適用します。ID の名前や対象パスを列挙する必要はありません。
+
+```yaml
+steps:
+  get_asset:
+    greq:
+      example.AssetService/GetAsset:
+        message: {id: 123}
+    test: diffEps(loadJSON("cases/expected.json"), current.res.message, "cases/tolerances.yaml")
+```
+
+- `loadJSON(path)` はプロジェクトルート基準の JSON ファイルを、数値を丸めずに読みます。大きな整数を含む期待値には `json://` の代わりに、この関数を `diffEps()` 内で使ってください。既に `json://` で丸められた値は復元できません。
+- `.proto` の指定、サーバーリフレクションの両方に対応します。ネスト、repeated、`res.messages` のストリーミング結果、レスポンス内のメッセージや配列を取り出した比較にも対応します。`Int64Value` / `UInt64Value` のラッパーも数値比較します。map の内部は今回の自動判定の対象外です。
+- 自動判定は取得したレスポンスのコンテナに対応付けます。JSON に変換して読み直したコピー、文字列・数値のフィールドを単独で取り出した値、`Any` 内の型には自動判定を行いません。その場合は設定の `numericStrings` で対象を指定できます。
+- 通常の `string` フィールド、欠落、null、配列の要素数・順序は従来どおり比較します。レスポンス自体を書き換えないため、ポイント比較やエビデンスでは元の文字列を保持します。期待値のフィールド名は runn の出力と同じ proto の名前に揃えてください。
+- `loadJSON()` は JSON の構文・数値表記を保持する読み込み関数です。proto の型や数値範囲を検証するものではなく、計算結果の小数も比較できます。
+
+比較処理は runnora-diff の汎用機能 `numericStrings` に委譲します。proto の型の解釈とパスの自動生成は runnora 側だけで行います。
+
 レポートには、プロジェクト名・環境・スイート・環境の `backends` の宣言と、runbook ごとの `id` / `expect` / `actual` (`pass` / `fail` / `hookFail` / `skipped`) / `passed` (期待どおりか) を出力します。`expect: fail` や `expect: hookFail` の runbook が期待どおりに失敗した場合は合格として数えます。
 
 `report.json`（と `--report-format json` の出力）には、さらに次を載せます。

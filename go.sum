@@ -431,6 +431,10 @@ github.com/ramsesyok/oapi2wire v0.3.1-0.20261004122248-6d6bb9d81099 h1:uWr/1QQml
 github.com/ramsesyok/oapi2wire v0.3.1-0.20261004122248-6d6bb9d81099/go.mod h1:MPKyPvTzSs/eXRHagZU1iPJxeuPcLXhJU8dAWaE5UCQ=
 github.com/ramsesyok/runnora-diff v0.2.1 h1:J1rEAfM22OKHYPCzFk0eGXI65e/70j8taTyFanBodl4=
 github.com/ramsesyok/runnora-diff v0.2.1/go.mod h1:wRzia8HyXbOdFivEZrWKzUxquBF7PAtDfrhP/9qcQT4=
+github.com/ramsesyok/runnora-diff v0.2.2-0.20261004203703-d534b30161c3 h1:kFQWtusy5bXzC1j1qcLqpxziVR9r1ulzEDHoWMr4YZU=
+github.com/ramsesyok/runnora-diff v0.2.2-0.20261004203703-d534b30161c3/go.mod h1:wRzia8HyXbOdFivEZrWKzUxquBF7PAtDfrhP/9qcQT4=
+github.com/ramsesyok/runnora-diff v0.2.2 h1:wrEuR0zm0ztQh3FhqNRwqpwOkQFA9cDzrzVepi2F+UQ=
+github.com/ramsesyok/runnora-diff v0.2.2/go.mod h1:wRzia8HyXbOdFivEZrWKzUxquBF7PAtDfrhP/9qcQT4=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
 github.com/rivo/uniseg v0.1.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
