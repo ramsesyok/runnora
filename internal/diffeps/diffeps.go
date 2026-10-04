@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -21,6 +22,9 @@ import (
 
 // FuncName は runbook の式で使う関数名。
 const FuncName = "diffEps"
+
+// LoadJSONFuncName は大きな整数を丸めずに期待値を読む関数。
+const LoadJSONFuncName = "loadJSON"
 
 // Call は diffEps の呼び出し 1 回分の結果。
 type Call struct {
@@ -36,14 +40,15 @@ type Recorder struct {
 	root    string
 	current func() (key string, index int)
 
-	mu    sync.Mutex
-	calls []Call
+	mu      sync.Mutex
+	calls   []Call
+	schemas map[nodeID]responseSchema
 }
 
 // NewRecorder は Recorder を作る。root は rules に書いたパスの基準 (プロジェクトルート)、
 // current は実行中のステップのキーと番号を返す関数 (evidence.Capturer.CurrentStep)。
 func NewRecorder(root string, current func() (string, int)) *Recorder {
-	return &Recorder{root: root, current: current}
+	return &Recorder{root: root, current: current, schemas: make(map[nodeID]responseSchema)}
 }
 
 // Calls は記録した呼び出しを呼ばれた順に返す。
@@ -70,6 +75,19 @@ func (r *Recorder) Func() func(args ...any) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("%s: %w", FuncName, err)
 		}
+		paths, err := r.numericStringPaths(args[0], args[1])
+		if err != nil {
+			return false, fmt.Errorf("%s: %w", FuncName, err)
+		}
+		if len(paths) > 0 {
+			// 設定ファイルのキャッシュを変更せず、呼び出しごとに型情報を加える。
+			copy := jsondiff.Options{}
+			if opts != nil {
+				copy = *opts
+			}
+			copy.NumericStrings = append(append([]string(nil), copy.NumericStrings...), paths...)
+			opts = &copy
+		}
 		expected, err := normalize(args[0])
 		if err != nil {
 			return false, fmt.Errorf("%s: expected を JSON として扱えません: %w", FuncName, err)
@@ -91,6 +109,25 @@ func (r *Recorder) Func() func(args ...any) (bool, error) {
 		r.mu.Unlock()
 		return res.Equal, nil
 	}
+}
+
+// LoadJSON はプロジェクトルート基準の JSON ファイルを json.Number で読む。
+// runn の json:// が float64 にした整数は後から復元できないため、期待値は
+// diffEps(loadJSON("cases/expected.json"), actual) で読み込める。
+func (r *Recorder) LoadJSON(path string) (any, error) {
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(r.root, filepath.FromSlash(path))
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", LoadJSONFuncName, err)
+	}
+	defer f.Close()
+	v, err := jsondiff.DecodeJSON(f)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %s: %w", LoadJSONFuncName, path, err)
+	}
+	return v, nil
 }
 
 // configCache は読み込んだ設定ファイル (絶対パス → 設定)。同じファイルを何度も読まない。

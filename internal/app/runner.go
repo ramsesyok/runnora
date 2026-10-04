@@ -287,7 +287,7 @@ func (r *Runner) Run(ctx context.Context, plan *Plan) (*reporter.Report, error) 
 		}
 		capt := evidence.New(t.rb.ID, mode, plan.EvidenceMask)
 		diffs := diffeps.NewRecorder(plan.Root, capt.CurrentStep)
-		opts := append(append([]runn.Option{}, base...), runn.Capture(capt), runn.Func(diffeps.FuncName, diffs.Func()))
+		opts := append(append([]runn.Option{}, base...), runn.Capture(diffs.Capturer(capt)), runn.Func(diffeps.FuncName, diffs.Func()), runn.Func(diffeps.LoadJSONFuncName, diffs.LoadJSON))
 		out := r.runOne(ctx, t, exec, opts, plan.Root)
 		passed := out.actual == expect
 		res := reporter.RunResult{
