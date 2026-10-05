@@ -22,6 +22,9 @@ import (
 
 func TestRunTypedMultipartThroughInclude(t *testing.T) {
 	f := newFixture(t)
+	// Match CLI execution from the project root. Windows runners place the
+	// checkout and t.TempDir on different drives, which runn cannot relativize.
+	t.Chdir(f.root)
 	binary := []byte{0, 255, 128, 13, 10, 1}
 	f.write("data.bin", string(binary))
 	var calls atomic.Int32
@@ -124,6 +127,7 @@ steps:
 
 func TestRunTypedMultipartRejectsOversizedFile(t *testing.T) {
 	f := newFixture(t)
+	t.Chdir(f.root)
 	path := f.write("large.csv", "")
 	file, err := os.OpenFile(path, os.O_WRONLY, 0600)
 	if err != nil {
