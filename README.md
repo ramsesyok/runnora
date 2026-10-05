@@ -637,6 +637,7 @@ generate:                              # generate コマンドの既定値 (パ�
 ## ドキュメント
 
 - [チュートリアル一覧](docs/index.md)
+- [multipart の記載方法](docs/tutorial/multipart-typed.md)（JSON + CSV / 画像、パートの Content-Type、curl からの置き換え）
 - [基本設計書](docs/basic-design-runnora.md)（`config.yaml` と `--before-sql` / `--after-sql` の記述は旧形式。新形式は下の詳細設計を参照）
 - [新形式 (v2) 詳細設計](docs/design/format-v2.md)
 - [runnora-migrate：旧形式から新形式への移行](docs/migrate.md)

@@ -3,7 +3,15 @@
 `runnora run` では `multipart(parts)` 関数でパートごとの Content-Type を指定できる。
 組み込む runn のバージョンやコードを変更する必要はない。
 
+`runnora.yaml` のあるディレクトリに `fixtures/data.csv` を置き、runbook に次のように書く。
+`API_URL` はプロジェクトの環境変数で接続先（例：`http://localhost:8080`）を設定する。
+パート名 `metadata` / `file` と URL `/api/upload` は、対象 API の仕様に合わせる。
+
 ```yaml
+runnora:
+  id: CSV-UPLOAD
+runners:
+  req: ${API_URL}
 vars:
   metadata:
     name: 取込データ
@@ -21,7 +29,10 @@ steps:
             Content-Type: "{{ upload.contentType }}"
           body:
             application/octet-stream: "{{ upload.body }}"
+    test: current.res.status == 200
 ```
+
+`runnora run runbooks/upload.yml`、またはこの runbook を選択するスイートで実行する。
 
 `prepare` が型付きの各パートと boundary を生成する。`send` の `application/octet-stream` は
 runn の生本文送信を選ぶためのキーで、実際の HTTP Content-Type は `upload.contentType`
@@ -45,6 +56,23 @@ JSON オブジェクトを送る場合はマップを渡す。JSON の文字列�
 型を省略した値は `text/plain; charset=utf-8`、ファイルは中身による自動判定になる。
 CSV や JSON の正確な MIME 型を要求する API には必ず明示する。
 
+### JSON ファイルと送信ファイル名を指定する
+
+既に JSON ファイルがある場合は、`value` の代わりに `file` を使う。
+CSV の送信名を指定する場合は `filename` を加える。送信ステップは上の例と同じ。
+
+```yaml
+prepare:
+  bind:
+    upload: 'multipart({"metadata": {"contentType": "application/json", "file": "fixtures/metadata.json"}, "file": {"contentType": "text/csv", "file": "fixtures/data.csv", "filename": "import.csv"}})'
+```
+
+画像を送る場合も同じ形式で、ファイルパートを
+`{"contentType": "image/png", "file": "fixtures/cover.png"}` に置き換える。
+応答が JSON の API なら `Accept: application/json` のままでよい。
+
+### ファイルパスと対応範囲
+
 **関数内のファイルパスは `runnora.yaml` のあるプロジェクトルート基準**。
 プロジェクトファイルがない場合は CLI のカレントディレクトリ基準。
 通常の `body: multipart/form-data:` の runbook 相対パスとは異なる。
@@ -57,7 +85,8 @@ CSV や JSON の正確な MIME 型を要求する API には必ず明示する�
 
 本文はファイル全体をメモリに読み、runn の YAML 展開でもバイナリを保持できる数値配列で渡す。
 ストリーミング送信ではない。通常のキャプチャ・OpenAPI 応答検証・HTTP ステップの結果確認は利用できる。
-`evidence.mode: full` の証跡には multipart 本文も保存される。
+`evidence.mode: full` の証跡には HTTP ヘッダーとテキスト形式の multipart 本文も保存される。
+PNG などのバイナリを含む本文は、既存の証跡機能に従ってサイズの要約になる。
 
 ## Spring Boot での受信
 
@@ -73,3 +102,42 @@ public Result upload(@RequestPart("metadata") Metadata metadata,
 
 文字列パートの Content-Type が省略されると、Spring の JSON → DTO 変換で 415 になる場合がある。
 この関数は metadata に `application/json` を付け、DTO として受け取れる本文を送る。
+
+## curl からの置き換えと 415 の確認
+
+次の curl と同じ型指定は、このページの JSON ファイルの例で表せる。
+
+```sh
+curl http://localhost:8080/api/upload \
+  -H 'Accept: application/json' \
+  -F 'metadata=@fixtures/metadata.json;type=application/json' \
+  -F 'file=@fixtures/data.csv;type=text/csv;filename=import.csv'
+```
+
+| 指定する場所 | 値 | 意味 |
+|---|---|---|
+| リクエストの `Accept` | `application/json` | API の応答形式 |
+| リクエストの `Content-Type` | `{{ upload.contentType }}` | multipart の形式と本文に対応する boundary |
+| metadata の `contentType` | `application/json` | Spring が JSON を DTO に変換するための型 |
+| file の `contentType` | `text/csv` / `image/png` | API が受け付けるファイルパートの型 |
+
+415 が続く場合は、全体の Content-Type に boundary が付いているか、本文も同じ `upload`
+から取っているか、各パートの型・名前が API の仕様と一致するかを確認する。
+`Content-Type: multipart/form-data` の固定値は使わず、生成した `upload.contentType` を渡す。
+`Accept` を `multipart/form-data` に変更しても、アップロードのパート型は変わらない。
+
+Spring Boot を起動して curl と比較する検証は、
+[runnora-e2e の multipart テスト](https://github.com/ramsesyok/runnora-e2e/tree/main/multipart-test)を参照。
+CI では従来方式の 415、型を指定した CSV・JSON ファイル・PNG の 200、誤った型の 415 と
+受信したファイルの SHA-256・サイズ、テキスト本文の boundary と証跡を確認する。
+
+## CI の保守
+
+`.github/workflows/test.yml` の `multipart-spring` は push / pull request ごとにそのコミットの
+runnora をビルドし、runnora-e2e の共通ワークフローで Spring Boot E2E を実行する。
+既存の Linux の `go test ./...` に加えて、Windows でも multipart builder と
+include / loop を通る結合テストを実行する。ログと証跡は `multipart-spring-evidence` artifact で確認できる。
+
+共通ワークフローの `uses: ...@<SHA>` と `e2e-ref` は同じ E2E コミットに固定している。
+E2E を更新する場合は、E2E 側のコミットを先に push してから両方の SHA を更新する。
+初回も E2E の追加コミットを公開してからこのブランチの CI を実行する。
