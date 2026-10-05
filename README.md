@@ -5,6 +5,7 @@ WebAPI / gRPC シナリオテストツール。[runn](https://github.com/k1LoW/r
 ## 特徴
 
 - HTTP / gRPC シナリオを runbook (YAML) で記述して実行
+- `multipart()` で JSON・CSV・画像の各パートの Content-Type を指定して送信（[使い方](docs/tutorial/multipart-typed.md)）
 - プロジェクトファイル `runnora.yaml` で、接続先などの変数・共通の PL/SQL・実行する runbook の組み合わせ (スイート) を環境ごとに管理
 - シナリオ固有の PL/SQL と期待する結果 (成功 / 失敗 / フック失敗) を、runbook の `runnora:` ブロックに記述
 - `validate` で、実行せずにプロジェクトファイルと runbook を検査
