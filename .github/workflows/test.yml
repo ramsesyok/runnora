@@ -35,6 +35,15 @@ jobs:
           (cd test/testapi && "$(go env GOPATH)/bin/govulncheck" ./...)
           (cd test/testgrpc && "$(go env GOPATH)/bin/govulncheck" ./...)
 
+  multipart-spring:
+    name: Multipart Spring Boot E2E
+    # Keep the workflow and fixtures on the same immutable E2E commit.
+    uses: ramsesyok/runnora-e2e/.github/workflows/multipart-reusable.yml@014d2239a41fd7c4ad1ee5ea83c162860c75c2f3
+    with:
+      e2e-ref: 014d2239a41fd7c4ad1ee5ea83c162860c75c2f3
+      runnora-repository: ${{ github.repository }}
+      runnora-ref: ${{ github.sha }}
+
   oracle-plsql-hooks:
     name: Oracle PL/SQL hooks
     runs-on: ubuntu-24.04

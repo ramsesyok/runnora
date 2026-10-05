@@ -7,6 +7,7 @@
 - [OpenAPI 定義から runbook を生成して API テストを始める](tutorial/openapi-generate-runbook.md)
 - [OpenAPI 定義から runnora のテストと WireMock モックをそろえる](tutorial/openapi-generate-mock.md)
 - [GripMock で gRPC の4つの通信方式をテストする](tutorial/grpc-gripmock.md)
+- [JSON と CSV・画像を multipart で送る](tutorial/multipart-typed.md)（パートごとの Content-Type、JSON ファイル、415 の確認）
 
 ## Reference
 

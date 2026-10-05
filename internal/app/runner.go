@@ -41,6 +41,7 @@ import (
 	"github.com/ramsesyok/runnora/internal/diffeps"
 	"github.com/ramsesyok/runnora/internal/evidence"
 	"github.com/ramsesyok/runnora/internal/hook"
+	"github.com/ramsesyok/runnora/internal/multipartbody"
 	"github.com/ramsesyok/runnora/internal/oracle"
 	"github.com/ramsesyok/runnora/internal/project"
 	"github.com/ramsesyok/runnora/internal/reporter"
@@ -287,7 +288,7 @@ func (r *Runner) Run(ctx context.Context, plan *Plan) (*reporter.Report, error) 
 		}
 		capt := evidence.New(t.rb.ID, mode, plan.EvidenceMask)
 		diffs := diffeps.NewRecorder(plan.Root, capt.CurrentStep)
-		opts := append(append([]runn.Option{}, base...), runn.Capture(diffs.Capturer(capt)), runn.Func(diffeps.FuncName, diffs.Func()), runn.Func(diffeps.LoadJSONFuncName, diffs.LoadJSON))
+		opts := append(append([]runn.Option{}, base...), runn.Capture(diffs.Capturer(capt)), runn.Func(diffeps.FuncName, diffs.Func()), runn.Func(diffeps.LoadJSONFuncName, diffs.LoadJSON), runn.Func(multipartbody.FuncName, multipartbody.Builder{Root: plan.Root}.Build))
 		out := r.runOne(ctx, t, exec, opts, plan.Root)
 		passed := out.actual == expect
 		res := reporter.RunResult{
