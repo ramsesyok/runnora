@@ -38,9 +38,9 @@ jobs:
   multipart-spring:
     name: Multipart Spring Boot E2E
     # Keep the workflow and fixtures on the same immutable E2E commit.
-    uses: ramsesyok/runnora-e2e/.github/workflows/multipart-reusable.yml@2ac16275741ab2ff6b9d649ec56e7620193192cf
+    uses: ramsesyok/runnora-e2e/.github/workflows/multipart-reusable.yml@421a92319c23aa28a0d7de9251ea7982a606f415
     with:
-      e2e-ref: 2ac16275741ab2ff6b9d649ec56e7620193192cf
+      e2e-ref: 421a92319c23aa28a0d7de9251ea7982a606f415
       runnora-repository: ${{ github.repository }}
       runnora-ref: ${{ github.sha }}
 

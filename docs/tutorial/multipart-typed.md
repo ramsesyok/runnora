@@ -25,7 +25,7 @@ steps:
       /api/upload:
         post:
           headers:
-            Accept: application/json
+            Accept: "application/json"
             Content-Type: "{{ upload.contentType }}"
           body:
             application/octet-stream: "{{ upload.body }}"
@@ -38,6 +38,35 @@ steps:
 runn の生本文送信を選ぶためのキーで、実際の HTTP Content-Type は `upload.contentType`
 （`multipart/form-data; boundary=...`）になる。本文と Content-Type は同じ呼び出しの戻り値を使う。
 `Accept` は受け取りたい応答の形式を指定するので、JSON と CSV の混在にかかわらず `application/json`。
+
+## リクエストヘッダーの値はダブルクォーテーションで囲む
+
+**このチュートリアルでは、`headers` の固定値をすべてダブルクォーテーションで囲む。**
+数字だけの値や英字の値も同じ書き方に揃える。
+
+```yaml
+headers:
+  Accept: "application/json"
+  X-Request-ID: "1"
+  X-Exerceis-ID: "R"
+  Content-Type: "{{ upload.contentType }}"
+```
+
+`X-Request-ID` / `X-Exerceis-ID` は記載例。使用するヘッダー名と値は API の仕様に合わせる。
+runn が受け付けるヘッダー値は文字列（または文字列の配列）で、数値型は自動変換しない。
+`X-Request-ID: 1` は YAML で数値になり、v0.5.0 では HTTP 送信前に
+`http request failed ... invalid request: ...` になることを確認した。
+
+| YAML の指定 | YAML の型 | 扱い |
+|---|---|---|
+| `X-Request-ID: 1` | 数値 | ヘッダー解析で失敗する |
+| `X-Request-ID: "1"` | 文字列 | 送信できる |
+| `X-Exerceis-ID: R` | 文字列 | 送信できるが、この説明では引用符を付ける表記に統一する |
+| `X-Exerceis-ID: "R"` | 文字列 | 推奨する表記 |
+
+引用符は YAML の型を指定するためのもの。HTTP では `X-Request-ID: 1`、
+`X-Exerceis-ID: R` と送信し、値の前後に引用符は付けない。
+変数を使う場合は、引用符の有無だけでなく、テンプレート展開後の値も文字列であることを確認する。
 
 ## パートの指定
 
@@ -200,7 +229,7 @@ prepare:
 
 画像を送る場合も同じ形式で、ファイルパートを
 `{"contentType": "image/png", "file": "fixtures/cover.png"}` に置き換える。
-応答が JSON の API なら `Accept: application/json` のままでよい。
+応答が JSON の API なら `Accept: "application/json"` のままでよい。
 
 ### ファイルパスと対応範囲
 
