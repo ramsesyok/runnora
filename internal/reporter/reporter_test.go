@@ -297,3 +297,37 @@ func TestTextReporter_WritesDiffSummary(t *testing.T) {
 		t.Errorf("output:\n%s\nwant line:\n%s", buf.String(), want)
 	}
 }
+
+// enum として比較した差分は、番号の側に名前を添える。名前の側と、名前が分からない番号はそのまま。
+func TestTextReporter_WritesEnumNames(t *testing.T) {
+	item := func(expected, actual any, names map[string]any) reporter.DiffSummary {
+		return reporter.DiffSummary{Differences: 1, Items: []any{map[string]any{
+			"path": ".status", "kind": "changed", "expected": expected, "actual": actual,
+			"enum": names,
+		}}}
+	}
+	tests := []struct {
+		d    reporter.DiffSummary
+		want string
+	}{
+		{item("STATUS_ACTIVE", 2.0, map[string]any{"rule": ".status", "expected": "STATUS_ACTIVE", "actual": "STATUS_SUSPENDED"}),
+			`(最初: .status changed 期待 "STATUS_ACTIVE" 実際 2 (STATUS_SUSPENDED))`},
+		{item(1.0, "STATUS_SUSPENDED", map[string]any{"rule": ".status", "expected": "STATUS_ACTIVE|STATUS_ENABLED", "actual": "STATUS_SUSPENDED"}),
+			`(最初: .status changed 期待 1 (STATUS_ACTIVE|STATUS_ENABLED) 実際 "STATUS_SUSPENDED")`},
+		{item("STATUS_ACTIVE", 9.0, map[string]any{"rule": ".status", "expected": "STATUS_ACTIVE"}),
+			`(最初: .status changed 期待 "STATUS_ACTIVE" 実際 9)`},
+	}
+	for _, tt := range tests {
+		r := &reporter.Report{Total: 1, Failed: 1, Results: []reporter.RunResult{{
+			ID: "S-1", Path: "a.yml", Expect: "pass", Actual: "fail",
+			Steps: []reporter.StepResult{{Key: "check", Result: reporter.StepFailure, Error: "failed", Diffs: []reporter.DiffSummary{tt.d}}},
+		}}}
+		var buf bytes.Buffer
+		if err := reporter.NewTextReporter(&buf).Write(r); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(buf.String(), tt.want) {
+			t.Errorf("output:\n%s\nwant:\n%s", buf.String(), tt.want)
+		}
+	}
+}

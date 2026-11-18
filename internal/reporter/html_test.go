@@ -108,3 +108,27 @@ func TestHTMLReporter_PropagatesWriteError(t *testing.T) {
 		t.Fatal("want error")
 	}
 }
+
+// enum として比較した差分は、番号の側に名前を添える。
+func TestHTMLReporter_EnumNames(t *testing.T) {
+	r := htmlReport()
+	r.Results[1].Steps[0].Diffs[0].Items = append(r.Results[1].Steps[0].Diffs[0].Items,
+		map[string]any{"path": ".status", "kind": "changed", "expected": "STATUS_ACTIVE", "actual": 2,
+			"enum": map[string]any{"rule": ".status", "expected": "STATUS_ACTIVE", "actual": "STATUS_SUSPENDED"}},
+		map[string]any{"path": ".kind", "kind": "changed", "expected": 1, "actual": "KIND_B",
+			"enum": map[string]any{"rule": ".kind", "expected": "KIND_A", "actual": "KIND_B"}})
+	var buf bytes.Buffer
+	if err := reporter.NewHTMLReporter(&buf).Write(r); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	for _, want := range []string{
+		`<td><pre>&#34;STATUS_ACTIVE&#34;</pre></td><td><pre>2 (STATUS_SUSPENDED)</pre></td>`,
+		`<td><pre>1 (KIND_A)</pre></td><td><pre>&#34;KIND_B&#34;</pre></td>`,
+		`<td><pre>100</pre></td><td><pre>101.5</pre></td>`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("summary.html should contain %q", want)
+		}
+	}
+}

@@ -90,7 +90,7 @@ details.rb > div { padding: 0 8px 8px; overflow-x: auto; }
 <table>
 <tr><th>パス</th><th>種類</th><th>期待</th><th>実際</th></tr>
 {{- range diffItems .DiffSummary}}
-<tr><td>{{.Path}}</td><td>{{.Kind}}</td><td><pre>{{json .Expected}}</pre></td><td><pre>{{json .Actual}}</pre></td></tr>
+<tr><td>{{.Path}}</td><td>{{.Kind}}</td><td><pre>{{json .Expected}}{{with .ExpectedName}} ({{.}}){{end}}</pre></td><td><pre>{{json .Actual}}{{with .ActualName}} ({{.}}){{end}}</pre></td></tr>
 {{- end}}
 </table>
 {{- if gt .Differences (len .Items)}}<span class="muted">先頭 {{len .Items}} 件のみ表示</span>{{end}}
