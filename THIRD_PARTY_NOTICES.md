@@ -169,14 +169,14 @@ For each module, the source archive below provides its exact, unmodified version
 | go.opentelemetry.io/otel | v1.45.0 | [source archive](https://proxy.golang.org/go.opentelemetry.io/otel/@v/v1.45.0.zip) |
 | go.uber.org/ratelimit | v0.3.1 | [source archive](https://proxy.golang.org/go.uber.org/ratelimit/@v/v0.3.1.zip) |
 | go.yaml.in/yaml/v4 | v4.0.0-rc.4 | [source archive](https://proxy.golang.org/go.yaml.in/yaml/v4/@v/v4.0.0-rc.4.zip) |
-| golang.org/x/crypto | v0.56.0 | [source archive](https://proxy.golang.org/golang.org/x/crypto/@v/v0.56.0.zip) |
+| golang.org/x/crypto | v0.57.0 | [source archive](https://proxy.golang.org/golang.org/x/crypto/@v/v0.57.0.zip) |
 | golang.org/x/exp | v0.0.0-20260410095643-746e56fc9e2f | [source archive](https://proxy.golang.org/golang.org/x/exp/@v/v0.0.0-20260410095643-746e56fc9e2f.zip) |
-| golang.org/x/net | v0.58.0 | [source archive](https://proxy.golang.org/golang.org/x/net/@v/v0.58.0.zip) |
+| golang.org/x/net | v0.60.0 | [source archive](https://proxy.golang.org/golang.org/x/net/@v/v0.60.0.zip) |
 | golang.org/x/oauth2 | v0.36.0 | [source archive](https://proxy.golang.org/golang.org/x/oauth2/@v/v0.36.0.zip) |
-| golang.org/x/sync | v0.22.0 | [source archive](https://proxy.golang.org/golang.org/x/sync/@v/v0.22.0.zip) |
-| golang.org/x/sys | v0.47.0 | [source archive](https://proxy.golang.org/golang.org/x/sys/@v/v0.47.0.zip) |
-| golang.org/x/term | v0.45.0 | [source archive](https://proxy.golang.org/golang.org/x/term/@v/v0.45.0.zip) |
-| golang.org/x/text | v0.41.0 | [source archive](https://proxy.golang.org/golang.org/x/text/@v/v0.41.0.zip) |
+| golang.org/x/sync | v0.23.0 | [source archive](https://proxy.golang.org/golang.org/x/sync/@v/v0.23.0.zip) |
+| golang.org/x/sys | v0.48.0 | [source archive](https://proxy.golang.org/golang.org/x/sys/@v/v0.48.0.zip) |
+| golang.org/x/term | v0.46.0 | [source archive](https://proxy.golang.org/golang.org/x/term/@v/v0.46.0.zip) |
+| golang.org/x/text | v0.42.0 | [source archive](https://proxy.golang.org/golang.org/x/text/@v/v0.42.0.zip) |
 | golang.org/x/time | v0.15.0 | [source archive](https://proxy.golang.org/golang.org/x/time/@v/v0.15.0.zip) |
 | google.golang.org/api | v0.277.0 | [source archive](https://proxy.golang.org/google.golang.org/api/@v/v0.277.0.zip) |
 | google.golang.org/genproto/googleapis/api | v0.0.0-20260526163538-3dc84a4a5aaa | [source archive](https://proxy.golang.org/google.golang.org/genproto/googleapis/api/@v/v0.0.0-20260526163538-3dc84a4a5aaa.zip) |
@@ -18074,9 +18074,9 @@ http://www.apache.org/licenses/LICENSE-2.0
 ```
 
 
-## golang.org/x/crypto@v0.56.0
+## golang.org/x/crypto@v0.57.0
 
-Source: https://proxy.golang.org/golang.org/x/crypto/@v/v0.56.0.zip
+Source: https://proxy.golang.org/golang.org/x/crypto/@v/v0.57.0.zip
 
 ### LICENSE
 
@@ -18148,9 +18148,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
 
-## golang.org/x/net@v0.58.0
+## golang.org/x/net@v0.60.0
 
-Source: https://proxy.golang.org/golang.org/x/net/@v/v0.58.0.zip
+Source: https://proxy.golang.org/golang.org/x/net/@v/v0.60.0.zip
 
 ### LICENSE
 
@@ -18222,46 +18222,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
 
-## golang.org/x/sync@v0.22.0
+## golang.org/x/sync@v0.23.0
 
-Source: https://proxy.golang.org/golang.org/x/sync/@v/v0.22.0.zip
-
-### LICENSE
-
-```text
-Copyright 2009 The Go Authors.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are
-met:
-
-   * Redistributions of source code must retain the above copyright
-notice, this list of conditions and the following disclaimer.
-   * Redistributions in binary form must reproduce the above
-copyright notice, this list of conditions and the following disclaimer
-in the documentation and/or other materials provided with the
-distribution.
-   * Neither the name of Google LLC nor the names of its
-contributors may be used to endorse or promote products derived from
-this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-```
-
-
-## golang.org/x/sys@v0.47.0
-
-Source: https://proxy.golang.org/golang.org/x/sys/@v/v0.47.0.zip
+Source: https://proxy.golang.org/golang.org/x/sync/@v/v0.23.0.zip
 
 ### LICENSE
 
@@ -18296,9 +18259,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
 
-## golang.org/x/term@v0.45.0
+## golang.org/x/sys@v0.48.0
 
-Source: https://proxy.golang.org/golang.org/x/term/@v/v0.45.0.zip
+Source: https://proxy.golang.org/golang.org/x/sys/@v/v0.48.0.zip
 
 ### LICENSE
 
@@ -18333,9 +18296,46 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
 
-## golang.org/x/text@v0.41.0
+## golang.org/x/term@v0.46.0
 
-Source: https://proxy.golang.org/golang.org/x/text/@v/v0.41.0.zip
+Source: https://proxy.golang.org/golang.org/x/term/@v/v0.46.0.zip
+
+### LICENSE
+
+```text
+Copyright 2009 The Go Authors.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+   * Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above
+copyright notice, this list of conditions and the following disclaimer
+in the documentation and/or other materials provided with the
+distribution.
+   * Neither the name of Google LLC nor the names of its
+contributors may be used to endorse or promote products derived from
+this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+
+## golang.org/x/text@v0.42.0
+
+Source: https://proxy.golang.org/golang.org/x/text/@v/v0.42.0.zip
 
 ### LICENSE
 
