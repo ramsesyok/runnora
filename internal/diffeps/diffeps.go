@@ -75,17 +75,20 @@ func (r *Recorder) Func() func(args ...any) (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("%s: %w", FuncName, err)
 		}
-		paths, err := r.numericStringPaths(args[0], args[1])
+		paths, enums, err := r.typedPaths(args[0], args[1])
 		if err != nil {
 			return false, fmt.Errorf("%s: %w", FuncName, err)
 		}
-		if len(paths) > 0 {
+		if len(paths) > 0 || len(enums) > 0 {
 			// 設定ファイルのキャッシュを変更せず、呼び出しごとに型情報を加える。
 			copy := jsondiff.Options{}
 			if opts != nil {
 				copy = *opts
 			}
 			copy.NumericStrings = append(append([]string(nil), copy.NumericStrings...), paths...)
+			// 同じノードでは後方のルールが優先されるため、型情報の enum を先に置き、
+			// 設定に書いた enums で上書きできるようにする。
+			copy.Enums = append(append([]jsondiff.EnumRule(nil), enums...), copy.Enums...)
 			opts = &copy
 		}
 		expected, err := normalize(args[0])

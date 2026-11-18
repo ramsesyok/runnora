@@ -20,6 +20,15 @@ map は自動判定の対象外。単独のスカラー、JSON 化後のコピ�
 
 型情報は runn が登録したグローバル descriptor に従う。異なるスキーマで同じサービス名・ファイル名を使う runbook を同一プロセスで実行するケースは、runn のグローバル登録の衝突処理に依存する。スキーマごとに別プロセスで実行する。
 
+## enum
+
+runn は gRPC レスポンスを `protojson.MarshalOptions{UseEnumNumbers: true}` で JSON にするため、enum は番号になる。期待値に enum の名前を書けるよう、64ビット整数と同じ仕組みで enum のフィールドを判定する。
+
+- runnora-diff は汎用の `Options.Enums` / 設定の `enums`（パスと、名前から番号への対応表）を持つ。対象ノードで少なくとも片側が対応表の名前のときだけ番号にそろえて完全一致で比較し、番号同士は従来の数値比較のまま。proto に依存しない（runnora-diff の仕様書 3.6 章）。
+- runnora は descriptor を辿り、enum のフィールド（単体・repeated・ネスト・repeated のメッセージ内）ごとに、パスと enum の全値（別名を含む）の対応表を生成して `Enums` に加える。repeated のパスは64ビット整数と同じく `[]?` を使う。
+- 生成したルールは設定の `enums` より前に置く。runnora-diff は同じノードで後方のルールを優先するため、同じパスでは設定に書いた対応表が優先される。呼び出しごとに設定をコピーし、キャッシュされた設定は変更しない。
+- map の値は対象外。`google.protobuf.NullValue` は protojson が常に `null` を出力するため対象外。JSON 化後のコピーや `Any` 内の型は、64ビット整数と同様に設定の `enums` を明示する。
+
 ## 精度と許容誤差
 
 数値文字列は float64 に変換せず、元のリテラルで比較する。両側が文字列の場合にも数値比較を適用する。epsilon は従来の `default` / `tolerances` で指定する。ID を完全一致にする場合は対応する許容誤差を0にする。

@@ -28,12 +28,15 @@ func TestRun_GRPCNumericDiffEps(t *testing.T) {
 			protoSource := fmt.Sprintf(`syntax = "proto3";
 package %s;
 message Request {}
-message Child { int64 assetID = 1; string code = 2; }
+enum Status { STATUS_UNSPECIFIED = 0; STATUS_ACTIVE = 1; STATUS_SUSPENDED = 2; }
+message Child { int64 assetID = 1; string code = 2; Status status = 3; }
 message Response {
   int64 id = 1;
   repeated int64 ids = 2;
   repeated Child children = 3;
   Child nested = 4;
+  Status status = 5;
+  repeated Status statuses = 6;
 }
 service NumericService {
   rpc Get(Request) returns (Response);
@@ -47,7 +50,7 @@ service NumericService {
 			}
 			service := files[0].Services().Get(0)
 			output := service.Methods().ByName("Get").Output()
-			actual := `{"id":"9223372036854775807","ids":["9007199254740992","9007199254740993"],"children":[{"assetID":"123","code":"123"},{"assetID":"456","code":"456"}],"nested":{"assetID":"789","code":"789"}}`
+			actual := `{"id":"9223372036854775807","ids":["9007199254740992","9007199254740993"],"children":[{"assetID":"123","code":"123","status":"STATUS_ACTIVE"},{"assetID":"456","code":"456","status":"STATUS_SUSPENDED"}],"nested":{"assetID":"789","code":"789","status":"STATUS_ACTIVE"},"status":"STATUS_ACTIVE","statuses":["STATUS_SUSPENDED","STATUS_ACTIVE"]}`
 			template := dynamicpb.NewMessage(output)
 			if err := protojson.Unmarshal([]byte(actual), template); err != nil {
 				t.Fatal(err)
@@ -87,17 +90,19 @@ service NumericService {
 			go srv.Serve(listener) //nolint:errcheck
 			t.Cleanup(srv.Stop)
 			// Keep codes as strings while making all Child.assetID values numeric.
-			expected := `{"id":9223372036854775807,"ids":[9007199254740992,9007199254740993],"children":[{"assetID":123,"code":"123"},{"assetID":456,"code":"456"}],"nested":{"assetID":789.005,"code":"789"}}`
+			// Enums mix names and numbers; runn returns them as numbers.
+			expected := `{"id":9223372036854775807,"ids":[9007199254740992,9007199254740993],"children":[{"assetID":123,"code":"123","status":"STATUS_ACTIVE"},{"assetID":456,"code":"456","status":2}],"nested":{"assetID":789.005,"code":"789","status":"STATUS_ACTIVE"},"status":"STATUS_ACTIVE","statuses":["STATUS_SUSPENDED",1]}`
 			f.write("cases/expected.json", expected)
 			f.write("cases/strict.json", strings.ReplaceAll(expected, "789.005", "789"))
 			f.write("cases/stream.json", "["+expected+","+expected+"]")
 			f.write("cases/adjacent.json", strings.ReplaceAll(strings.ReplaceAll(expected, "789.005", "789"), "9223372036854775807", "9223372036854775806"))
+			f.write("cases/wrong-enum.json", strings.Replace(strings.ReplaceAll(expected, "789.005", "789"), `"status":"STATUS_ACTIVE","statuses"`, `"status":"STATUS_SUSPENDED","statuses"`, 1))
 			f.write("cases/rules.yaml", "tolerances:\n  - path: .nested.assetID\n    abs: 0.01\n")
 			protoConfig := ""
 			if useProto {
 				protoConfig = fmt.Sprintf("    protos:\n      - ../proto/%s\n", protoName)
 			}
-			runbook := fmt.Sprintf(`desc: automatic gRPC numeric comparison
+			runbook := fmt.Sprintf(`desc: automatic gRPC numeric and enum comparison
 runnora:
   id: GRPC-NUMERIC
 runners:
@@ -115,11 +120,17 @@ runners:
   adjacent:
     test: '!diffEps(loadJSON("cases/adjacent.json"), steps.get.res.message)'
   nested:
-    test: diffEps({"assetID":789.005,"code":"789"}, steps.get.res.message.nested, {"default":{"abs":0.01}})
+    test: diffEps({"assetID":789.005,"code":"789","status":"STATUS_ACTIVE"}, steps.get.res.message.nested, {"default":{"abs":0.01}})
   repeated:
     test: diffEps([9007199254740992,9007199254740993], steps.get.res.message.ids)
+  repeated_enum:
+    test: diffEps(["STATUS_SUSPENDED","STATUS_ACTIVE"], steps.get.res.message.statuses)
+  wrong_enum:
+    test: '!diffEps(loadJSON("cases/wrong-enum.json"), steps.get.res.message)'
+  enum_number:
+    test: steps.get.res.message.status == 1
   string_field:
-    test: '!diffEps({"assetID":789,"code":789}, steps.get.res.message.nested)'
+    test: '!diffEps({"assetID":789,"code":789,"status":"STATUS_ACTIVE"}, steps.get.res.message.nested)'
   unchanged:
     test: steps.get.res.message.id == "9223372036854775807"
   stream:

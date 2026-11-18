@@ -273,7 +273,25 @@ steps:
 - 通常の `string` フィールド、欠落、null、配列の要素数・順序は従来どおり比較します。レスポンス自体を書き換えないため、ポイント比較やエビデンスでは元の文字列を保持します。期待値のフィールド名は runn の出力と同じ proto の名前に揃えてください。
 - `loadJSON()` は JSON の構文・数値表記を保持する読み込み関数です。proto の型や数値範囲を検証するものではなく、計算結果の小数も比較できます。
 
-比較処理は runnora-diff の汎用機能 `numericStrings` に委譲します。proto の型の解釈とパスの自動生成は runnora 側だけで行います。
+**gRPC の enum:** runn は gRPC レスポンスの enum を名前ではなく番号（`1` など）で返します。`diffEps()` は同じ descriptor から enum のフィールドを自動判定し、期待値に enum の名前（`"STATUS_ACTIVE"`）を書いても、番号と同じ値として比較します。期待値の中で名前と番号が混在していても構いません。対象パスや名前と番号の対応表を設定に書く必要はありません。
+
+```yaml
+steps:
+  get_user:
+    greq:
+      example.UserService/GetUser:
+        message: {id: 1}
+    # 期待値: {"user": {"status": "STATUS_ACTIVE", "roles": ["ROLE_ADMIN", 2]}}
+    test: diffEps(loadJSON("cases/user.json"), current.res.message)
+```
+
+- 名前と番号、名前同士（同じ番号の別名を含む）は完全一致で比較し、許容誤差は適用しません。番号同士の比較は従来どおりです。
+- 対応表にない名前（.proto にない値）は通常の比較になり、差分として報告します。値が異なる場合は `"STATUS_ACTIVE" → 2 (STATUS_SUSPENDED)` のように名前を添えて表示します。
+- ネスト、repeated の enum、`res.messages` のストリーミング結果、レスポンスから取り出したメッセージや配列にも対応します。map の値と `google.protobuf.NullValue` は対象外です。
+- 64ビット整数と同じく、JSON に変換したコピーや `Any` 内の型には自動判定を行いません。その場合は設定の `enums` で対応表を指定できます（runnora-diff の README を参照）。同じパスに設定の `enums` がある場合は、設定の対応表を優先します。
+- runn のレスポンス（`current.res.message.status == 1` などの式、証跡）は番号のまま変わりません。
+
+比較処理は runnora-diff の汎用機能 `numericStrings` / `enums` に委譲します。proto の型の解釈とパス・対応表の自動生成は runnora 側だけで行います。
 
 レポートには、プロジェクト名・環境・スイート・環境の `backends` の宣言と、runbook ごとの `id` / `expect` / `actual` (`pass` / `fail` / `hookFail` / `skipped`) / `passed` (期待どおりか) を出力します。`expect: fail` や `expect: hookFail` の runbook が期待どおりに失敗した場合は合格として数えます。
 

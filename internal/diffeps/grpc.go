@@ -81,7 +81,9 @@ type responseSchema struct {
 	message protoreflect.MessageDescriptor
 	list    bool
 	numeric bool
-	err     error
+	// enum is set for enum fields; runn emits their values as numbers.
+	enum protoreflect.EnumDescriptor
+	err  error
 }
 
 func isNumeric64(fd protoreflect.FieldDescriptor) bool {
@@ -90,6 +92,16 @@ func isNumeric64(fd protoreflect.FieldDescriptor) bool {
 		return true
 	}
 	return false
+}
+
+// enumOf returns the enum of an enum field. NullValue is left out: protojson
+// always emits it as null, never as a number.
+func enumOf(fd protoreflect.FieldDescriptor) protoreflect.EnumDescriptor {
+	ed := fd.Enum()
+	if ed == nil || ed.FullName() == "google.protobuf.NullValue" {
+		return nil
+	}
+	return ed
 }
 
 func isNumericWrapper(md protoreflect.MessageDescriptor) bool {
@@ -103,7 +115,7 @@ func (r *Recorder) remember(v any, schema responseSchema) {
 		schema.value = v
 		r.schemas[id] = schema
 	}
-	if schema.err != nil || schema.numeric {
+	if schema.err != nil || schema.numeric || schema.enum != nil {
 		return
 	}
 	if schema.list {
@@ -128,9 +140,10 @@ func (r *Recorder) remember(v any, schema responseSchema) {
 		}
 		md := fd.Message()
 		numeric := isNumeric64(fd) || isNumericWrapper(md)
+		enum := enumOf(fd)
 		if fd.IsList() {
-			if _, ok := child.([]any); ok && (md != nil || numeric) {
-				r.remember(child, responseSchema{message: md, list: true, numeric: numeric})
+			if _, ok := child.([]any); ok && (md != nil || numeric || enum != nil) {
+				r.remember(child, responseSchema{message: md, list: true, numeric: numeric, enum: enum})
 			}
 		} else if md != nil && !numeric {
 			r.remember(child, responseSchema{message: md})
@@ -138,10 +151,13 @@ func (r *Recorder) remember(v any, schema responseSchema) {
 	}
 }
 
-func (r *Recorder) numericStringPaths(values ...any) ([]string, error) {
+// typedPaths returns, for the values that are (or contain) captured gRPC
+// responses, the paths of 64-bit integers for numericStrings and an enums rule
+// with the value table of each enum field.
+func (r *Recorder) typedPaths(values ...any) ([]string, []jsondiff.EnumRule, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	paths := map[string]struct{}{}
+	paths := typedPathSet{numeric: map[string]struct{}{}, enums: map[string]protoreflect.EnumDescriptor{}}
 	var visit func(any, jsondiff.Path) error
 	visit = func(v any, path jsondiff.Path) error {
 		if id, ok := identity(v); ok {
@@ -149,7 +165,7 @@ func (r *Recorder) numericStringPaths(values ...any) ([]string, error) {
 				if schema.err != nil {
 					return schema.err
 				}
-				collectNumericPaths(v, schema, path.String(), paths)
+				collectPaths(v, schema, path.String(), paths)
 				return nil
 			}
 		}
@@ -177,22 +193,37 @@ func (r *Recorder) numericStringPaths(values ...any) ([]string, error) {
 	}
 	for _, value := range values {
 		if err := visit(value, jsondiff.Path{}); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
-	out := make([]string, 0, len(paths))
-	for path := range paths {
-		out = append(out, path)
+	numeric := make([]string, 0, len(paths.numeric))
+	for path := range paths.numeric {
+		numeric = append(numeric, path)
 	}
-	sort.Strings(out)
-	return out, nil
+	sort.Strings(numeric)
+	enums := make([]jsondiff.EnumRule, 0, len(paths.enums))
+	for path, ed := range paths.enums {
+		values := jsondiff.EnumValues{}
+		for i := 0; i < ed.Values().Len(); i++ {
+			v := ed.Values().Get(i)
+			values[string(v.Name())] = int64(v.Number())
+		}
+		enums = append(enums, jsondiff.EnumRule{Path: path, Values: values})
+	}
+	sort.Slice(enums, func(i, j int) bool { return enums[i].Path < enums[j].Path })
+	return numeric, enums, nil
+}
+
+type typedPathSet struct {
+	numeric map[string]struct{}
+	enums   map[string]protoreflect.EnumDescriptor
 }
 
 func childPath(path jsondiff.Path, key any) jsondiff.Path {
 	return append(append(jsondiff.Path(nil), path...), key)
 }
 
-func collectNumericPaths(v any, schema responseSchema, path string, paths map[string]struct{}) {
+func collectPaths(v any, schema responseSchema, path string, paths typedPathSet) {
 	if v == nil {
 		return
 	}
@@ -205,12 +236,16 @@ func collectNumericPaths(v any, schema responseSchema, path string, paths map[st
 			path += "[]?"
 		}
 		for _, child := range v.([]any) {
-			collectNumericPaths(child, responseSchema{message: schema.message, numeric: schema.numeric}, path, paths)
+			collectPaths(child, responseSchema{message: schema.message, numeric: schema.numeric, enum: schema.enum}, path, paths)
 		}
 		return
 	}
 	if schema.numeric {
-		paths[path] = struct{}{}
+		paths.numeric[path] = struct{}{}
+		return
+	}
+	if schema.enum != nil {
+		paths.enums[path] = schema.enum
 		return
 	}
 	m, ok := v.(map[string]any)
@@ -227,7 +262,7 @@ func collectNumericPaths(v any, schema responseSchema, path string, paths map[st
 		if !exists {
 			continue
 		}
-		next := responseSchema{message: fd.Message(), numeric: isNumeric64(fd) || isNumericWrapper(fd.Message()), list: fd.IsList()}
+		next := responseSchema{message: fd.Message(), numeric: isNumeric64(fd) || isNumericWrapper(fd.Message()), enum: enumOf(fd), list: fd.IsList()}
 		if next.list {
 			if _, ok := child.([]any); !ok {
 				continue
@@ -235,12 +270,12 @@ func collectNumericPaths(v any, schema responseSchema, path string, paths map[st
 		}
 		key := (jsondiff.Path{string(fd.Name())}).String()
 		if path == "." {
-			collectNumericPaths(child, next, key, paths)
+			collectPaths(child, next, key, paths)
 		} else {
 			if strings.HasPrefix(key, ".[") {
 				key = strings.TrimPrefix(key, ".")
 			}
-			collectNumericPaths(child, next, path+key, paths)
+			collectPaths(child, next, path+key, paths)
 		}
 	}
 }
