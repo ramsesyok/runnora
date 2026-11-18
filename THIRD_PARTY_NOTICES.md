@@ -86,8 +86,8 @@ For each module, the source archive below provides its exact, unmodified version
 | github.com/hashicorp/go-envparse | v0.1.0 | [source archive](https://proxy.golang.org/github.com/hashicorp/go-envparse/@v/v0.1.0.zip) |
 | github.com/hashicorp/golang-lru/v2 | v2.0.7 | [source archive](https://proxy.golang.org/github.com/hashicorp/golang-lru/v2/@v/v2.0.7.zip) |
 | github.com/inconshreveable/mousetrap | v1.1.0 | [source archive](https://proxy.golang.org/github.com/inconshreveable/mousetrap/@v/v1.1.0.zip) |
-| github.com/itchyny/gojq | v0.12.19 | [source archive](https://proxy.golang.org/github.com/itchyny/gojq/@v/v0.12.19.zip) |
-| github.com/itchyny/timefmt-go | v0.1.8 | [source archive](https://proxy.golang.org/github.com/itchyny/timefmt-go/@v/v0.1.8.zip) |
+| github.com/itchyny/gojq | v0.12.20 | [source archive](https://proxy.golang.org/github.com/itchyny/gojq/@v/v0.12.20.zip) |
+| github.com/itchyny/timefmt-go | v0.1.9 | [source archive](https://proxy.golang.org/github.com/itchyny/timefmt-go/@v/v0.1.9.zip) |
 | github.com/jhump/protoreflect/v2 | v2.0.0-beta.2 | [source archive](https://proxy.golang.org/github.com/jhump/protoreflect/v2/@v/v2.0.0-beta.2.zip) |
 | github.com/jhump/protoreflect | v1.18.0 | [source archive](https://proxy.golang.org/github.com/jhump/protoreflect/@v/v1.18.0.zip) |
 | github.com/juliangruber/go-intersect | v1.1.0 | [source archive](https://proxy.golang.org/github.com/juliangruber/go-intersect/@v/v1.1.0.zip) |
@@ -123,8 +123,8 @@ For each module, the source archive below provides its exact, unmodified version
 | github.com/lestrrat-go/option | v1.0.1 | [source archive](https://proxy.golang.org/github.com/lestrrat-go/option/@v/v1.0.1.zip) |
 | github.com/lib/pq | v1.12.3 | [source archive](https://proxy.golang.org/github.com/lib/pq/@v/v1.12.3.zip) |
 | github.com/mattn/go-colorable | v0.1.14 | [source archive](https://proxy.golang.org/github.com/mattn/go-colorable/@v/v0.1.14.zip) |
-| github.com/mattn/go-isatty | v0.0.22 | [source archive](https://proxy.golang.org/github.com/mattn/go-isatty/@v/v0.0.22.zip) |
-| github.com/mattn/go-runewidth | v0.0.23 | [source archive](https://proxy.golang.org/github.com/mattn/go-runewidth/@v/v0.0.23.zip) |
+| github.com/mattn/go-isatty | v0.0.24 | [source archive](https://proxy.golang.org/github.com/mattn/go-isatty/@v/v0.0.24.zip) |
+| github.com/mattn/go-runewidth | v0.0.31 | [source archive](https://proxy.golang.org/github.com/mattn/go-runewidth/@v/v0.0.31.zip) |
 | github.com/mattn/go-shellwords | v1.0.13 | [source archive](https://proxy.golang.org/github.com/mattn/go-shellwords/@v/v1.0.13.zip) |
 | github.com/mattn/go-tty | v0.0.8 | [source archive](https://proxy.golang.org/github.com/mattn/go-tty/@v/v0.0.8.zip) |
 | github.com/mitchellh/copystructure | v1.2.0 | [source archive](https://proxy.golang.org/github.com/mitchellh/copystructure/@v/v1.2.0.zip) |
@@ -142,7 +142,7 @@ For each module, the source archive below provides its exact, unmodified version
 | github.com/pkg/errors | v0.9.1 | [source archive](https://proxy.golang.org/github.com/pkg/errors/@v/v0.9.1.zip) |
 | github.com/pkg/term | v1.2.0-beta.2 | [source archive](https://proxy.golang.org/github.com/pkg/term/@v/v1.2.0-beta.2.zip) |
 | github.com/ramsesyok/oapi2wire | v0.3.1-0.20261004122248-6d6bb9d81099 | [source archive](https://proxy.golang.org/github.com/ramsesyok/oapi2wire/@v/v0.3.1-0.20261004122248-6d6bb9d81099.zip) |
-| github.com/ramsesyok/runnora-diff | v0.2.2 | [source archive](https://proxy.golang.org/github.com/ramsesyok/runnora-diff/@v/v0.2.2.zip) |
+| github.com/ramsesyok/runnora-diff | v0.3.1 | [source archive](https://proxy.golang.org/github.com/ramsesyok/runnora-diff/@v/v0.3.1.zip) |
 | github.com/remyoudompheng/bigfft | v0.0.0-20230129092748-24d4a6f8daec | [source archive](https://proxy.golang.org/github.com/remyoudompheng/bigfft/@v/v0.0.0-20230129092748-24d4a6f8daec.zip) |
 | github.com/rivo/uniseg | v0.4.7 | [source archive](https://proxy.golang.org/github.com/rivo/uniseg/@v/v0.4.7.zip) |
 | github.com/rs/xid | v1.6.0 | [source archive](https://proxy.golang.org/github.com/rs/xid/@v/v1.6.0.zip) |
@@ -9537,9 +9537,9 @@ Source: https://proxy.golang.org/github.com/inconshreveable/mousetrap/@v/v1.1.0.
 ```
 
 
-## github.com/itchyny/gojq@v0.12.19
+## github.com/itchyny/gojq@v0.12.20
 
-Source: https://proxy.golang.org/github.com/itchyny/gojq/@v/v0.12.19.zip
+Source: https://proxy.golang.org/github.com/itchyny/gojq/@v/v0.12.20.zip
 
 ### LICENSE
 
@@ -9568,16 +9568,16 @@ SOFTWARE.
 ```
 
 
-## github.com/itchyny/timefmt-go@v0.1.8
+## github.com/itchyny/timefmt-go@v0.1.9
 
-Source: https://proxy.golang.org/github.com/itchyny/timefmt-go/@v/v0.1.8.zip
+Source: https://proxy.golang.org/github.com/itchyny/timefmt-go/@v/v0.1.9.zip
 
 ### LICENSE
 
 ```text
 The MIT License (MIT)
 
-Copyright (c) 2020-2025 itchyny
+Copyright (c) 2020-2026 itchyny
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -12489,9 +12489,9 @@ SOFTWARE.
 ```
 
 
-## github.com/mattn/go-isatty@v0.0.22
+## github.com/mattn/go-isatty@v0.0.24
 
-Source: https://proxy.golang.org/github.com/mattn/go-isatty/@v/v0.0.22.zip
+Source: https://proxy.golang.org/github.com/mattn/go-isatty/@v/v0.0.24.zip
 
 ### LICENSE
 
@@ -12508,9 +12508,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 
-## github.com/mattn/go-runewidth@v0.0.23
+## github.com/mattn/go-runewidth@v0.0.31
 
-Source: https://proxy.golang.org/github.com/mattn/go-runewidth/@v/v0.0.23.zip
+Source: https://proxy.golang.org/github.com/mattn/go-runewidth/@v/v0.0.31.zip
 
 ### LICENSE
 
@@ -14312,9 +14312,9 @@ SOFTWARE.
 ```
 
 
-## github.com/ramsesyok/runnora-diff@v0.2.2
+## github.com/ramsesyok/runnora-diff@v0.3.1
 
-Source: https://proxy.golang.org/github.com/ramsesyok/runnora-diff/@v/v0.2.2.zip
+Source: https://proxy.golang.org/github.com/ramsesyok/runnora-diff/@v/v0.3.1.zip
 
 ### LICENSE
 
