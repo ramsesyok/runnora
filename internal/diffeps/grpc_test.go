@@ -93,8 +93,8 @@ func TestGRPCNumericProvenance(t *testing.T) {
 	if actual["assetID"] != "9223372036854775807" {
 		t.Fatal("response mutated")
 	}
-	paths, err := r.numericStringPaths(actual)
-	if err != nil || !reflect.DeepEqual(paths, []string{".assetID", ".asset_id", ".children[]?.assetID", ".children[]?.id", ".id", ".ids[]?", ".nested.assetID", ".sequence", ".signed_sequence", ".wrapped", ".wrapped_ids[]?"}) {
+	paths, enums, err := r.typedPaths(actual)
+	if err != nil || len(enums) != 0 || !reflect.DeepEqual(paths, []string{".assetID", ".asset_id", ".children[]?.assetID", ".children[]?.id", ".id", ".ids[]?", ".nested.assetID", ".sequence", ".signed_sequence", ".wrapped", ".wrapped_ids[]?"}) {
 		t.Fatalf("paths: %v, %v", paths, err)
 	}
 }
