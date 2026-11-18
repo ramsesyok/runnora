@@ -176,16 +176,21 @@ func firstDiff(d DiffSummary) string {
 	if err != nil {
 		return ""
 	}
-	var item struct {
-		Path     string `json:"path"`
-		Kind     string `json:"kind"`
-		Expected any    `json:"expected"`
-		Actual   any    `json:"actual"`
-	}
+	var item diffItem
 	if json.Unmarshal(b, &item) != nil {
 		return ""
 	}
-	return fmt.Sprintf(" (最初: %s %s 期待 %s 実際 %s)", item.Path, item.Kind, compactJSON(item.Expected), compactJSON(item.Actual))
+	return fmt.Sprintf(" (最初: %s %s 期待 %s 実際 %s)", item.Path, item.Kind,
+		withEnumName(compactJSON(item.Expected), item.ExpectedName()),
+		withEnumName(compactJSON(item.Actual), item.ActualName()))
+}
+
+// withEnumName は enum として比較した番号に名前を添える (2 (STATUS_SUSPENDED))。
+func withEnumName(s, name string) string {
+	if name == "" {
+		return s
+	}
+	return s + " (" + name + ")"
 }
 
 func diffFile(d DiffSummary) string {

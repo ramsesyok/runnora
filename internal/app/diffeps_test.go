@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/ramsesyok/runnora/internal/app"
+	"github.com/ramsesyok/runnora/internal/reporter"
 	"github.com/ramsesyok/runnora/internal/scenario"
 )
 
@@ -115,5 +117,68 @@ func TestRun_DiffEpsWithoutEvidence(t *testing.T) {
 	broken := steps[len(steps)-1]
 	if len(broken.Diffs) != 1 || broken.Diffs[0].Differences != 2 || broken.Diffs[0].File != "" {
 		t.Fatalf("broken: %+v", broken)
+	}
+}
+
+// enum として比較した差分は、report.json の要約と証跡の .diff.json に enum (ルールと名前) を付けて残り、
+// テキストのレポートでは番号に名前を添える。
+func TestRun_DiffEpsEnumDifference(t *testing.T) {
+	f := newFixture(t)
+	f.write("cases/expected.json", `{"status": "STATUS_ACTIVE", "kind": 1}`)
+	f.write("cases/rules.yaml", "enums:\n  - path: .status\n    values: &status {STATUS_ACTIVE: 1, STATUS_SUSPENDED: 2}\n  - path: .kind\n    values: *status\n")
+	p := f.write("runbooks/main.yml", `desc: enum difference
+runnora:
+  id: ENUM-1
+steps:
+  same:
+    test: 'diffEps(loadJSON("cases/expected.json"), {"status": 1, "kind": "STATUS_ACTIVE"}, "cases/rules.yaml")'
+  broken:
+    test: 'diffEps(loadJSON("cases/expected.json"), {"status": 2, "kind": "STATUS_SUSPENDED"}, "cases/rules.yaml")'
+`)
+	rb, err := scenario.Read(p, f.root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	evDir := filepath.Join(t.TempDir(), "evidence")
+	report, err := app.NewRunner(testSetenv(t)).Run(context.Background(), &app.Plan{
+		Root: f.root, Runbooks: []*scenario.Runbook{rb}, EvidenceDir: evDir,
+	})
+	if exitCode(err) != 1 {
+		t.Fatalf("exit %d (%v), want 1", exitCode(err), err)
+	}
+	steps := report.Results[0].Steps
+	if steps[0].Result != "success" || steps[1].Result != "failure" || len(steps[1].Diffs) != 1 {
+		t.Fatalf("steps: %+v", steps)
+	}
+	d := steps[1].Diffs[0]
+	items, _ := json.Marshal(d.Items)
+	for _, want := range []string{
+		`"path":".kind","kind":"changed","expected":1,"actual":"STATUS_SUSPENDED","enum":{"rule":".kind","expected":"STATUS_ACTIVE","actual":"STATUS_SUSPENDED"}`,
+		`"path":".status","kind":"changed","expected":"STATUS_ACTIVE","actual":2,"enum":{"rule":".status","expected":"STATUS_ACTIVE","actual":"STATUS_SUSPENDED"}`,
+	} {
+		if !strings.Contains(string(items), want) {
+			t.Errorf("report items lack %s:\n%s", want, items)
+		}
+	}
+	b, err := os.ReadFile(filepath.Join(evDir, "ENUM-1", "02-broken.diff.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"rule": ".status"`) || !strings.Contains(string(b), `"actual": "STATUS_SUSPENDED"`) {
+		t.Errorf("diff file: %s", b)
+	}
+
+	var js, text bytes.Buffer
+	if err := reporter.NewJSONReporter(&js).Write(report); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(js.String(), `"enum"`) || !strings.Contains(js.String(), `"STATUS_SUSPENDED"`) {
+		t.Errorf("report.json lacks enum:\n%s", js.String())
+	}
+	if err := reporter.NewTextReporter(&text).Write(report); err != nil {
+		t.Fatal(err)
+	}
+	if want := `(最初: .kind changed 期待 1 (STATUS_ACTIVE) 実際 "STATUS_SUSPENDED")`; !strings.Contains(text.String(), want) {
+		t.Errorf("text report:\n%s\nwant %s", text.String(), want)
 	}
 }

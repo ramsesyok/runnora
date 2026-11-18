@@ -161,3 +161,92 @@ func TestGRPCEnumRulesFromConfigWin(t *testing.T) {
 		t.Fatalf("cached options: %+v, %v", opts, err)
 	}
 }
+
+func enumVariantsDescriptor(t *testing.T) protoreflect.MessageDescriptor {
+	t.Helper()
+	compiler := protocompile.Compiler{Resolver: protocompile.WithStandardImports(&protocompile.SourceResolver{Accessor: protocompile.SourceAccessorFromMap(map[string]string{
+		"variants.proto": `syntax = "proto3";
+package runnora.enum.variants;
+import "google/protobuf/any.proto";
+enum Color { COLOR_UNSPECIFIED = 0; COLOR_RED = 1; COLOR_BLUE = 2; }
+message Node {
+  enum Kind { KIND_UNSPECIFIED = 0; KIND_LEAF = 1; KIND_BRANCH = 2; }
+  Kind kind = 1;
+  repeated Node children = 2;
+  oneof value {
+    Color color = 3;
+    string label = 4;
+  }
+  google.protobuf.Any extra = 5;
+  int64 id = 6;
+}`,
+	})})}
+	files, err := compiler.Compile(context.Background(), "variants.proto")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return files[0].Messages().ByName("Node")
+}
+
+func TestGRPCEnumVariants(t *testing.T) {
+	r := NewRecorder(t.TempDir(), nil)
+	// A recursive message three levels deep, with an enum declared inside the
+	// message (kind), an enum in a oneof (color), a 64-bit integer and an Any.
+	actual := map[string]any{
+		"kind": 2, "color": 1, "id": "9223372036854775807",
+		"extra": map[string]any{"@type": "type.googleapis.com/runnora.enum.variants.Node", "kind": 1},
+		"children": []any{
+			map[string]any{"kind": 2, "label": "x", "children": []any{map[string]any{"kind": 1, "color": 2, "id": "2"}}},
+			map[string]any{"kind": 1, "color": 9},
+		},
+	}
+	r.remember(actual, responseSchema{message: enumVariantsDescriptor(t)})
+	expected := func() map[string]any {
+		return map[string]any{
+			"kind": "KIND_BRANCH", "color": "COLOR_RED", "id": json.Number("9223372036854775807"),
+			"extra": map[string]any{"@type": "type.googleapis.com/runnora.enum.variants.Node", "kind": 1},
+			"children": []any{
+				map[string]any{"kind": "KIND_BRANCH", "label": "x", "children": []any{map[string]any{"kind": "KIND_LEAF", "color": "COLOR_BLUE", "id": 2}}},
+				map[string]any{"kind": "KIND_LEAF", "color": 9},
+			},
+		}
+	}
+	compare := func(name string, e map[string]any, want bool, rules ...any) *jsondiff.Result {
+		t.Helper()
+		got, err := r.Func()(append([]any{e, actual}, rules...)...)
+		if err != nil || got != want {
+			t.Fatalf("%s: equal=%v, err=%v, calls=%+v", name, got, err, r.Calls())
+		}
+		return r.Calls()[len(r.Calls())-1].Result
+	}
+	compare("nested enum, oneof enum, recursion and 64-bit integers", expected(), true)
+
+	// The server returns a number missing from the local .proto (a newer value).
+	e := expected()
+	e["children"].([]any)[1].(map[string]any)["color"] = "COLOR_RED"
+	res := compare("number unknown to the descriptor", e, false)
+	if d := res.Differences[0]; d.Path != ".children[1].color" || d.Enum == nil || d.Enum.Actual != "" || d.Enum.Expected != "COLOR_RED" {
+		t.Fatalf("unknown number: %+v", d)
+	}
+
+	// Any's message type is not resolved, so its enums stay strict ...
+	e = expected()
+	e["extra"].(map[string]any)["kind"] = "KIND_LEAF"
+	compare("enum inside Any", e, false)
+	// ... and can be given in the config.
+	compare("enum inside Any with a config rule", e, true,
+		map[string]any{"enums": []any{map[string]any{"path": ".extra.kind", "values": map[string]any{"KIND_LEAF": 1}}}})
+
+	_, enums, err := r.typedPaths(actual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var paths []string
+	for _, rule := range enums {
+		paths = append(paths, rule.Path)
+	}
+	want := []string{".children[]?.children[]?.color", ".children[]?.children[]?.kind", ".children[]?.color", ".children[]?.kind", ".color", ".kind"}
+	if !reflect.DeepEqual(paths, want) {
+		t.Errorf("enum paths: %v", paths)
+	}
+}

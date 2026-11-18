@@ -179,11 +179,33 @@ func verdict(r RunResult) string {
 	}
 }
 
+// diffItem は runnora-diff の --format json の差分 1 件のうち、レポートに出す項目。
 type diffItem struct {
 	Path     string `json:"path"`
 	Kind     string `json:"kind"`
 	Expected any    `json:"expected"`
 	Actual   any    `json:"actual"`
+	// Enum は enum として比較した差分の、ルールと双方の名前。
+	Enum *struct {
+		Expected string `json:"expected"`
+		Actual   string `json:"actual"`
+	} `json:"enum"`
+}
+
+// ExpectedName は期待値が enum の番号のときの名前。
+func (d diffItem) ExpectedName() string {
+	if _, isString := d.Expected.(string); d.Enum == nil || isString {
+		return ""
+	}
+	return d.Enum.Expected
+}
+
+// ActualName は実際の値が enum の番号のときの名前。
+func (d diffItem) ActualName() string {
+	if _, isString := d.Actual.(string); d.Enum == nil || isString {
+		return ""
+	}
+	return d.Enum.Actual
 }
 
 func diffItems(d DiffSummary) []diffItem {
